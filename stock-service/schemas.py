@@ -66,3 +66,8 @@ class StockTransactionResponse(StockTransactionBase):
     created_at: datetime
 
     model_config = ConfigDict(from_attributes=True)
+
+class StockDeductRequest(BaseModel):
+    order_id: UUID = Field(..., description="Unique ID of the order")
+    item_id: UUID = Field(..., description="ID of the item to deduct")
+    quantity: int = Field(..., description="Quantity to deduct")
