@@ -1,5 +1,0 @@
-# Common deps shared across all services
--r ../requirements.txt
-
-# Service-specific: bcrypt password hashing
-passlib[bcrypt]>=1.7.4
