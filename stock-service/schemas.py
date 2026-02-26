@@ -13,6 +13,10 @@ class ItemBase(BaseModel):
 class ItemCreate(ItemBase):
     pass
 
+class ItemUpdate(BaseModel):
+    name: Optional[str] = Field(None, min_length=1, description="Name of the item")
+    price: Optional[Decimal] = Field(None, gt=0, description="Price of the item")
+
 class ItemResponse(ItemBase):
     id: UUID
     created_at: datetime

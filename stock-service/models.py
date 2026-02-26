@@ -1,10 +1,22 @@
-from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Numeric, CheckConstraint
+from sqlalchemy import Column, String, Integer, DateTime, ForeignKey, Numeric, CheckConstraint, create_engine
 from sqlalchemy.dialects.postgresql import UUID
-from sqlalchemy.orm import declarative_base, relationship
+from sqlalchemy.orm import declarative_base, relationship, sessionmaker
 from sqlalchemy.sql import func
 import uuid
+import os
 
+DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://cafeteria:cafeteria_pass@postgres:5432/cafeteria_db")
+
+engine = create_engine(DATABASE_URL)
+SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
+
+def get_db():
+    db = SessionLocal()
+    try:
+        yield db
+    finally:
+        db.close()
 
 class Item(Base):
     __tablename__ = 'items'
