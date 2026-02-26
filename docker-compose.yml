@@ -1,0 +1,163 @@
+version: "3.9"
+
+# =============================================================================
+# IUT Cafeteria Crisis System — Docker Compose Orchestration
+# =============================================================================
+# Run with:  docker compose up --build
+# =============================================================================
+
+x-common-env: &common-env
+  DATABASE_URL: postgresql://cafeteria:cafeteria_pass@postgres:5432/cafeteria_db
+  REDIS_URL: redis://redis:6379/0
+  RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
+  JWT_SECRET: super-secret-hackathon-key
+
+services:
+  # ---------------------------------------------------------------------------
+  # Infrastructure
+  # ---------------------------------------------------------------------------
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: cafeteria
+      POSTGRES_PASSWORD: cafeteria_pass
+      POSTGRES_DB: cafeteria_db
+    ports:
+      - "5432:5432"
+    volumes:
+      - pgdata:/var/lib/postgresql/data
+    networks:
+      - cafeteria-net
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U cafeteria"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  redis:
+    image: redis:7-alpine
+    ports:
+      - "6379:6379"
+    networks:
+      - cafeteria-net
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
+  rabbitmq:
+    image: rabbitmq:3-management-alpine
+    ports:
+      - "5672:5672"
+      - "15672:15672"
+    networks:
+      - cafeteria-net
+    healthcheck:
+      test: ["CMD", "rabbitmq-diagnostics", "-q", "check_running"]
+      interval: 15s
+      timeout: 10s
+      retries: 5
+
+  # ---------------------------------------------------------------------------
+  # Backend Microservices
+  # ---------------------------------------------------------------------------
+  authentication-service:
+    build: ./authentication-service
+    ports:
+      - "8001:8000"
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cafeteria-net
+
+  order-gateway:
+    build: ./order-gateway
+    ports:
+      - "8000:8000"
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+      authentication-service:
+        condition: service_started
+      stock-service:
+        condition: service_started
+      kitchen-service:
+        condition: service_started
+    networks:
+      - cafeteria-net
+
+  stock-service:
+    build: ./stock-service
+    ports:
+      - "8002:8000"
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      redis:
+        condition: service_healthy
+    networks:
+      - cafeteria-net
+
+  kitchen-service:
+    build: ./kitchen-service
+    ports:
+      - "8003:8000"
+    environment:
+      <<: *common-env
+    depends_on:
+      postgres:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cafeteria-net
+
+  notification-service:
+    build: ./notification-service
+    ports:
+      - "8004:8000"
+    environment:
+      <<: *common-env
+    depends_on:
+      redis:
+        condition: service_healthy
+      rabbitmq:
+        condition: service_healthy
+    networks:
+      - cafeteria-net
+
+  # ---------------------------------------------------------------------------
+  # Frontend
+  # ---------------------------------------------------------------------------
+  frontend:
+    build: ./frontend
+    ports:
+      - "3000:3000"
+    depends_on:
+      - order-gateway
+    networks:
+      - cafeteria-net
+
+# =============================================================================
+# Networks & Volumes
+# =============================================================================
+networks:
+  cafeteria-net:
+    driver: bridge
+
+volumes:
+  pgdata:
