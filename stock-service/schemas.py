@@ -37,6 +37,9 @@ class InventoryCreate(InventoryBase):
 class InventoryUpdate(BaseModel):
     quantity: int = Field(..., ge=0, description="New stock quantity")
 
+class InventoryDelta(BaseModel):
+    delta: int = Field(..., description="Quantity adjustment (positive or negative)")
+
 class InventoryResponse(InventoryBase):
     id: UUID
     item_id: UUID
