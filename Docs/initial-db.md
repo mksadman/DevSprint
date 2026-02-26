@@ -314,6 +314,70 @@ This ensures:
 
 Each service is the single source of truth for its domain.
 
+
+
+---
+
+# 📌 Constraint Alignment & Future-Ready Foundation
+
+## How the Current Database Design Supports All Requirements
+
+---
+
+## 🔐 Security & Authentication
+
+✔ Unique `student_id` + hashed passwords  
+✔ `login_attempts` supports rate limiting (3 attempts/minute)  
+✔ JWT-based identity avoids cross-service coupling  
+✔ No shared DB access between services  
+
+**Result:** Secure authentication boundary ready for production.
+
+---
+
+## 🔁 Resilience & Fault Tolerance
+
+✔ `idempotency_keys` prevents duplicate orders  
+✔ `stock_transactions` ensures safe retry tracking  
+✔ UUID-based global identifiers across services  
+✔ Order lifecycle tracking in `kitchen_orders`  
+
+**Result:** Safe retries + crash recovery ready.
+
+---
+
+## ⚡ Performance & Caching Readiness
+
+✔ Inventory separated as source of truth  
+✔ Optimistic locking (`version`) prevents overselling  
+✔ DB design compatible with Redis cache layer  
+✔ Minimal cross-service dependency  
+
+**Result:** High-load Ramadan rush support ready.
+
+---
+
+## 📊 Observability & Monitoring
+
+✔ `login_attempts` for auth metrics  
+✔ `stock_transactions` for throughput tracking  
+✔ `order_status_history` for lifecycle visibility  
+✔ `notifications` for delivery auditing  
+
+**Result:** Metrics endpoints can expose real-time system insights.
+
+---
+
+## 🧱 Service Isolation & Scalability
+
+✔ Separate databases per service  
+✔ No cross-service foreign keys  
+✔ Domain ownership strictly enforced  
+✔ Logical linking via UUID (not relational joins)  
+
+**Result:** Independent scaling + fault isolation enabled.
+
+
 ---
 
 # Final Architectural Decision
