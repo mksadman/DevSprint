@@ -141,3 +141,7 @@ frontend/.output/
 *.tmp
 *.orig
 *.patch
+
+
+# md files
+*.md

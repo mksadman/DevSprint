@@ -63,7 +63,7 @@ services:
   # Backend Microservices
   # ---------------------------------------------------------------------------
   authentication-service:
-    build: ./authentication-service
+    build: ./backend/authentication-service
     ports:
       - "8001:8000"
     environment:
@@ -77,7 +77,7 @@ services:
       - cafeteria-net
 
   order-gateway:
-    build: ./order-gateway
+    build: ./backend/order-gateway
     ports:
       - "8000:8000"
     environment:
@@ -99,7 +99,7 @@ services:
       - cafeteria-net
 
   stock-service:
-    build: ./stock-service
+    build: ./backend/stock-service
     ports:
       - "8002:8000"
     environment:
@@ -113,7 +113,7 @@ services:
       - cafeteria-net
 
   kitchen-service:
-    build: ./kitchen-service
+    build: ./backend/kitchen-service
     ports:
       - "8003:8000"
     environment:
@@ -127,7 +127,7 @@ services:
       - cafeteria-net
 
   notification-service:
-    build: ./notification-service
+    build: ./backend/notification-service
     ports:
       - "8004:8000"
     environment:
