@@ -13,7 +13,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: stock-service
+        working-directory: backend/stock-service
 
     steps:
       - uses: actions/checkout@v4
@@ -23,7 +23,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: stock-service/requirements.txt
+          cache-dependency-path: backend/stock-service/requirements.txt
 
       - name: Install dependencies
         run: |
@@ -40,7 +40,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: kitchen-service
+        working-directory: backend/kitchen-service
 
     steps:
       - uses: actions/checkout@v4
@@ -50,7 +50,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: kitchen-service/requirements.txt
+          cache-dependency-path: backend/kitchen-service/requirements.txt
 
       - name: Install dependencies
         run: |
@@ -67,7 +67,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: authentication-service
+        working-directory: backend/authentication-service
 
     steps:
       - uses: actions/checkout@v4
@@ -77,7 +77,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: authentication-service/requirements.txt
+          cache-dependency-path: backend/authentication-service/requirements.txt
 
       - name: Install dependencies
         run: |
