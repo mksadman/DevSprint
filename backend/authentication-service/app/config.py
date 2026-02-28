@@ -2,21 +2,20 @@ from pydantic_settings import BaseSettings
 
 
 class Settings(BaseSettings):
-    # JWT
-    JWT_SECRET: str = "supersecretkey-change-in-production"
+    # JWT — JWT_SECRET is required; no default to avoid accidental insecure deployments
+    JWT_SECRET: str
     JWT_ALGORITHM: str = "HS256"
-    JWT_EXPIRY_MINUTES: int = 60
+    JWT_EXP_MINUTES: int = 60
 
     # Redis
-    REDIS_URL: str = "redis://localhost:6379"
+    REDIS_HOST: str = "localhost"
+    REDIS_PORT: int = 6379
 
     # Rate limiting
     RATE_LIMIT_MAX_ATTEMPTS: int = 3
     RATE_LIMIT_WINDOW_SECONDS: int = 60
 
-    class Config:
-        env_file = ".env"
-        env_file_encoding = "utf-8"
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 
 
 settings = Settings()
