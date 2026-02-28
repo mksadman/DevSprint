@@ -14,8 +14,10 @@ os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), '..')))
 
-from main import app
-from models import Base, get_db, Item, Inventory, StockTransaction
+from app.main import app
+from app.core.database import Base, get_db
+from app.models.inventory import Item, Inventory
+from app.models.transaction import StockTransaction
 
 # 2. Setup Test Database
 SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"

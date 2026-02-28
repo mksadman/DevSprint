@@ -2,8 +2,8 @@ import tkinter as tk
 from tkinter import ttk, messagebox
 from sqlalchemy import create_engine, inspect
 from sqlalchemy.orm import sessionmaker
-import models
-from models import Item, Inventory, StockTransaction
+from app.models.inventory import Item, Inventory
+from app.models.transaction import StockTransaction
 import logging
 
 # Configure logging
