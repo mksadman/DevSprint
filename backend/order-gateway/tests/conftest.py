@@ -14,7 +14,7 @@ os.environ.setdefault("JWT_ALGORITHM", "HS256")
 os.environ.setdefault("REDIS_HOST", "localhost")
 os.environ.setdefault("REDIS_PORT", "6379")
 os.environ.setdefault("STOCK_SERVICE_URL", "http://stock-service:8001")
-os.environ.setdefault("KITCHEN_QUEUE_URL", "http://kitchen-service:8002")
+os.environ.setdefault("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 os.environ.setdefault("GATEWAY_TIMEOUT_MS", "2000")
 os.environ.setdefault("DATABASE_URL", "sqlite:///")  # in-memory
 
