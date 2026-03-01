@@ -6,9 +6,6 @@ import time
 from typing import List
 from uuid import UUID
 
-import httpx
-
-from app.core.config import NOTIFICATION_SERVICE_URL
 from app.schemas.event import KitchenOrderEvent
 from app.models.job import KitchenOrder
 
@@ -25,17 +22,14 @@ _in_memory_queue: List[dict] = []
 
 
 async def _notify_status(order_record: dict) -> None:
-    """Fire-and-forget push to the notification service."""
+    """Publish status update to the kitchen_events RabbitMQ exchange."""
     try:
-        async with httpx.AsyncClient(timeout=5.0) as client:
-            await client.post(
-                f"{NOTIFICATION_SERVICE_URL}/notify",
-                json={
-                    "order_id": order_record["order_id"],
-                    "student_id": order_record["student_id"],
-                    "status": order_record["status"],
-                },
-            )
+        from app.services.rabbitmq import publish_notification
+        await publish_notification({
+            "order_id": order_record["order_id"],
+            "student_id": order_record["student_id"],
+            "status": order_record["status"],
+        })
     except Exception as exc:
         logger.warning("Notification push failed: %s", exc)
 

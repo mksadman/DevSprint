@@ -4,6 +4,7 @@ import sys
 
 # Setup environment BEFORE imports
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ["RABBITMQ_URL"] = "amqp://guest:guest@localhost:5672/"
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))

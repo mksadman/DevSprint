@@ -10,7 +10,7 @@ class Settings(BaseSettings):
     REDIS_HOST: str
     REDIS_PORT: int
     STOCK_SERVICE_URL: str
-    KITCHEN_QUEUE_URL: str
+    RABBITMQ_URL: str = "amqp://guest:guest@rabbitmq:5672/"
     GATEWAY_TIMEOUT_MS: int
 
     @field_validator("REDIS_PORT")

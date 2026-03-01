@@ -85,7 +85,6 @@ services:
       REDIS_HOST: redis
       REDIS_PORT: 6379
       STOCK_SERVICE_URL: http://stock-service:8000
-      KITCHEN_QUEUE_URL: http://kitchen-service:8000
       GATEWAY_TIMEOUT_MS: 5000
     depends_on:
       postgres:
@@ -123,7 +122,6 @@ services:
       - "8003:8000"
     environment:
       <<: *common-env
-      NOTIFICATION_SERVICE_URL: http://notification-service:8000
     depends_on:
       postgres:
         condition: service_healthy
@@ -139,6 +137,8 @@ services:
     environment:
       <<: *common-env
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       rabbitmq:

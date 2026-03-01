@@ -5,6 +5,7 @@ from fastapi import FastAPI
 
 from app.core.database import Base, engine
 from app.routers import order, health, metrics
+from app.services.queue import close_rabbitmq
 
 logging.basicConfig(
     level=logging.INFO,
@@ -20,6 +21,7 @@ async def lifespan(application: FastAPI):
         import app.models.idempotency  # noqa: F401
         Base.metadata.create_all(bind=engine)
     yield
+    await close_rabbitmq()
 
 
 app = FastAPI(title="Order Gateway", version="1.0.0", lifespan=lifespan)

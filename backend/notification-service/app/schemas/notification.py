@@ -18,9 +18,13 @@ class WebSocketMessage(BaseModel):
 
 class HealthResponse(BaseModel):
     status: str
-    websocket: str
+    rabbitmq: str
+    database: str
 
 
 class MetricsResponse(BaseModel):
     total_messages_sent: Annotated[int, Field(ge=0)]
     active_connections: Annotated[int, Field(ge=0)]
+    unique_students: Annotated[int, Field(ge=0)]
+    notifications_persisted: Annotated[int, Field(ge=0)]
+    failed_deliveries: Annotated[int, Field(ge=0)]
