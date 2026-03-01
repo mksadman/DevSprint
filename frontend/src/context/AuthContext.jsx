@@ -29,9 +29,8 @@ export const AuthProvider = ({ children }) => {
   const login = async (studentId, password) => {
     try {
       const data = await loginApi(studentId, password);
-      // Assuming response structure { token: "...", user: { ... } }
-      // Adjust based on actual API response
-      const newToken = data.token;
+      // Backend returns { access_token: "..." }
+      const newToken = data.access_token;
       // If user data isn't returned, we might just store the ID
       const newUser = data.user || { studentId }; 
 
