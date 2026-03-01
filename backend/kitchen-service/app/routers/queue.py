@@ -1,10 +1,11 @@
+import asyncio
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.event import KitchenOrderEvent
 from app.schemas.status import HealthResponse, KitchenStatusUpdate, MetricsResponse
-from app.services.processor import enqueue_order, get_metrics_snapshot, get_order_status
+from app.services.processor import enqueue_order, get_metrics_snapshot, get_order_status, process_order_background
 
 router = APIRouter(tags=["queue"])
 
@@ -13,6 +14,7 @@ router = APIRouter(tags=["queue"])
 async def receive_order(event: KitchenOrderEvent) -> dict:
     """Accept an order event from the order-gateway and enqueue it for processing."""
     record = enqueue_order(event)
+    asyncio.create_task(process_order_background(record))
     return {"status": "queued", "order_id": record["order_id"]}
 
 

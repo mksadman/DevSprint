@@ -1,10 +1,18 @@
+import asyncio
+import logging
+import random
 import threading
+import time
 from typing import List
 from uuid import UUID
 
+import httpx
+
+from app.core.config import NOTIFICATION_SERVICE_URL
 from app.schemas.event import KitchenOrderEvent
 from app.models.job import KitchenOrder
 
+logger = logging.getLogger(__name__)
 
 _lock = threading.Lock()
 _store: dict = {
@@ -14,6 +22,42 @@ _store: dict = {
 }
 
 _in_memory_queue: List[dict] = []
+
+
+async def _notify_status(order_record: dict) -> None:
+    """Fire-and-forget push to the notification service."""
+    try:
+        async with httpx.AsyncClient(timeout=5.0) as client:
+            await client.post(
+                f"{NOTIFICATION_SERVICE_URL}/notify",
+                json={
+                    "order_id": order_record["order_id"],
+                    "student_id": order_record["student_id"],
+                    "status": order_record["status"],
+                },
+            )
+    except Exception as exc:
+        logger.warning("Notification push failed: %s", exc)
+
+
+async def process_order_background(order_record: dict) -> None:
+    """Simulate 3-7 s cooking time, cycling through QUEUED → IN_KITCHEN → READY."""
+    cook_time = random.uniform(3.0, 7.0)
+    start = time.monotonic()
+
+    with _lock:
+        order_record["status"] = "IN_KITCHEN"
+    await _notify_status(order_record)
+
+    await asyncio.sleep(cook_time)
+
+    with _lock:
+        order_record["status"] = "READY"
+        elapsed_ms = (time.monotonic() - start) * 1000
+        _store["total_orders_processed"] += 1
+        _store["processing_times_ms"].append(elapsed_ms)
+    await _notify_status(order_record)
+    logger.info("Order %s READY in %.0f ms", order_record["order_id"], elapsed_ms)
 
 
 def enqueue_order(event: KitchenOrderEvent) -> dict:
