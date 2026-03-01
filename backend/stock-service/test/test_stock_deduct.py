@@ -1,6 +1,6 @@
 """Stock deduction API tests — uses shared conftest fixtures."""
 import uuid
-from models import Item, Inventory
+from app.models.inventory import Item, Inventory
 
 
 def test_stock_deduct_flow(client, db_session):
@@ -61,8 +61,8 @@ def test_stock_deduct_flow(client, db_session):
     response = client.post("/stock/deduct", json={
         "order_id": order_id_3, "item_id": item_id, "quantity": -5
     })
-    assert response.status_code == 400
-    print("PASS: Invalid quantity handled (400)")
+    assert response.status_code == 422  # Pydantic validation rejects quantity <= 0
+    print("PASS: Invalid quantity handled (422)")
 
     # --- 5. Item Not Found ---
     print("\n[TEST 5] Item Not Found")

@@ -7,7 +7,7 @@ from pydantic import BaseModel, Field
 
 class KitchenStatusUpdate(BaseModel):
     order_id: UUID
-    status: Literal["IN_KITCHEN", "READY"]
+    status: Literal["QUEUED", "IN_KITCHEN", "READY"]
 
 
 class HealthResponse(BaseModel):

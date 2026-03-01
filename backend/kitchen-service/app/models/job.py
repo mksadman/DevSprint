@@ -1,23 +1,10 @@
-from sqlalchemy import Column, String, DateTime, ForeignKey, create_engine
+from sqlalchemy import Column, String, DateTime, ForeignKey
 from sqlalchemy import Uuid as UUID
-from sqlalchemy.orm import declarative_base, relationship, sessionmaker
+from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
 import uuid
-import os
 
-DATABASE_URL = os.getenv("DATABASE_URL", "postgresql://cafeteria:cafeteria_pass@postgres:5432/cafeteria_db")
-
-engine = create_engine(DATABASE_URL)
-SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base = declarative_base()
-
-
-def get_db():
-    db = SessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
+from app.core.database import Base
 
 
 class KitchenOrder(Base):

@@ -1,6 +1,6 @@
 """Admin endpoint tests (health & metrics) — uses shared conftest fixtures."""
 import uuid
-from models import Item, Inventory
+from app.models.inventory import Item, Inventory
 
 
 def test_admin_endpoints(client, db_session):

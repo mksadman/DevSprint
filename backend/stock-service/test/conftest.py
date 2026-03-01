@@ -19,9 +19,9 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from main import app
-from models import Base, get_db
-from api import admin
+from app.main import app
+from app.core.database import Base, get_db
+from app.services import metrics as metrics_module
 
 # ---------------------------------------------------------------------------
 # Single shared engine — all tests use this one DB
@@ -55,11 +55,11 @@ def setup_db():
     app.dependency_overrides[get_db] = override_get_db
 
     # Reset in-memory metrics
-    admin.metrics["total_requests"] = 0
-    admin.metrics["total_deductions"] = 0
-    admin.metrics["failed_deductions"] = 0
-    admin.metrics["total_latency_ms"] = 0.0
-    admin.metrics["request_count_per_route"] = {}
+    metrics_module.metrics["total_requests"] = 0
+    metrics_module.metrics["total_deductions"] = 0
+    metrics_module.metrics["failed_deductions"] = 0
+    metrics_module.metrics["total_latency_ms"] = 0.0
+    metrics_module.metrics["request_count_per_route"] = {}
 
     yield TestingSessionLocal
 

@@ -1,6 +1,5 @@
 """Item catalog CRUD tests — uses TestClient (no live server needed)."""
 import uuid
-from models import Item
 
 
 def test_crud(client, db_session):

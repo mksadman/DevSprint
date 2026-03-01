@@ -1,6 +1,7 @@
 """Transaction audit API tests — uses shared conftest fixtures."""
 import uuid
-from models import Item, StockTransaction
+from app.models.inventory import Item
+from app.models.transaction import StockTransaction
 
 
 def test_transaction_audit(client, db_session):

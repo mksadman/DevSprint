@@ -1,6 +1,7 @@
 """Inventory API tests — uses shared conftest fixtures."""
 import uuid
-from models import Item, Inventory, StockTransaction
+from app.models.inventory import Item, Inventory
+from app.models.transaction import StockTransaction
 
 
 def test_inventory_api_flow(client, db_session):
