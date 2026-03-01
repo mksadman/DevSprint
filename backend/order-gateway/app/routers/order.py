@@ -109,4 +109,4 @@ async def place_order(
         student_id,
         elapsed_ms,
     )
-    return OrderResponse(order_id=request.order_id, status=OrderStatus.CONFIRMED)
+    return OrderResponse(order_id=request.order_id, status=OrderStatus.CONFIRMED.value)

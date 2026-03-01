@@ -36,13 +36,13 @@ def _always_rate_limit(*_args, **_kwargs) -> bool:
 # ---------------------------------------------------------------------------
 
 
-@patch("app.routes.login.is_rate_limited", side_effect=_no_rate_limit)
+@patch("app.routers.auth.is_rate_limited", side_effect=_no_rate_limit)
 def test_login_success_returns_200(mock_rl, client: TestClient) -> None:
     response = client.post(LOGIN_URL, json=VALID_PAYLOAD)
     assert response.status_code == 200
 
 
-@patch("app.routes.login.is_rate_limited", side_effect=_no_rate_limit)
+@patch("app.routers.auth.is_rate_limited", side_effect=_no_rate_limit)
 def test_login_success_returns_access_token(mock_rl, client: TestClient) -> None:
     response = client.post(LOGIN_URL, json=VALID_PAYLOAD)
     body = response.json()
@@ -56,13 +56,13 @@ def test_login_success_returns_access_token(mock_rl, client: TestClient) -> None
 # ---------------------------------------------------------------------------
 
 
-@patch("app.routes.login.is_rate_limited", side_effect=_no_rate_limit)
+@patch("app.routers.auth.is_rate_limited", side_effect=_no_rate_limit)
 def test_login_invalid_password_returns_401(mock_rl, client: TestClient) -> None:
     response = client.post(LOGIN_URL, json=INVALID_PAYLOAD)
     assert response.status_code == 401
 
 
-@patch("app.routes.login.is_rate_limited", side_effect=_no_rate_limit)
+@patch("app.routers.auth.is_rate_limited", side_effect=_no_rate_limit)
 def test_login_unknown_student_returns_401(mock_rl, client: TestClient) -> None:
     response = client.post(
         LOGIN_URL, json={"student_id": "ghost999", "password": "anything"}
@@ -75,13 +75,13 @@ def test_login_unknown_student_returns_401(mock_rl, client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("app.routes.login.is_rate_limited", side_effect=_always_rate_limit)
+@patch("app.routers.auth.is_rate_limited", side_effect=_always_rate_limit)
 def test_login_rate_limited_returns_429(mock_rl, client: TestClient) -> None:
     response = client.post(LOGIN_URL, json=VALID_PAYLOAD)
     assert response.status_code == 429
 
 
-@patch("app.routes.login.is_rate_limited", side_effect=_always_rate_limit)
+@patch("app.routers.auth.is_rate_limited", side_effect=_always_rate_limit)
 def test_login_rate_limited_error_message(mock_rl, client: TestClient) -> None:
     response = client.post(LOGIN_URL, json=VALID_PAYLOAD)
     assert "detail" in response.json()
@@ -92,7 +92,7 @@ def test_login_rate_limited_error_message(mock_rl, client: TestClient) -> None:
 # ---------------------------------------------------------------------------
 
 
-@patch("app.routes.login.is_rate_limited", side_effect=_no_rate_limit)
+@patch("app.routers.auth.is_rate_limited", side_effect=_no_rate_limit)
 def test_jwt_payload_contains_required_claims(mock_rl, client: TestClient) -> None:
     before = int(time.time())
     response = client.post(LOGIN_URL, json=VALID_PAYLOAD)
@@ -117,7 +117,7 @@ def test_jwt_payload_contains_required_claims(mock_rl, client: TestClient) -> No
     assert payload["exp"] > after
 
 
-@patch("app.routes.login.is_rate_limited", side_effect=_no_rate_limit)
+@patch("app.routers.auth.is_rate_limited", side_effect=_no_rate_limit)
 def test_jwt_signed_with_correct_algorithm(mock_rl, client: TestClient) -> None:
     response = client.post(LOGIN_URL, json=VALID_PAYLOAD)
     token = response.json()["access_token"]
@@ -135,7 +135,7 @@ def test_health_returns_200_when_redis_reachable(client: TestClient) -> None:
     mock_redis = MagicMock()
     mock_redis.ping.return_value = True
 
-    with patch("app.routes.health.get_redis_client", return_value=mock_redis):
+    with patch("app.services.auth.get_redis_client", return_value=mock_redis):
         response = client.get("/health")
 
     assert response.status_code == 200
@@ -150,7 +150,7 @@ def test_health_returns_503_when_redis_unreachable(client: TestClient) -> None:
     mock_redis = MagicMock()
     mock_redis.ping.side_effect = redis_lib.RedisError("connection refused")
 
-    with patch("app.routes.health.get_redis_client", return_value=mock_redis):
+    with patch("app.services.auth.get_redis_client", return_value=mock_redis):
         response = client.get("/health")
 
     assert response.status_code == 503
