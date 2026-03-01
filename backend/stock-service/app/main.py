@@ -1,17 +1,34 @@
 import time
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
 
-from app.core.database import engine
-from app.models import inventory as _inventory_models  # noqa: F401 — registers models
-from app.models import transaction as _transaction_models  # noqa: F401 — registers models
-from app.core.database import Base
+from app.core.database import engine, Base
+from app.models import inventory as _inventory_models  # noqa: F401
+from app.models import transaction as _transaction_models  # noqa: F401
 from app.routers import admin, inventory, stock
 from app.services.metrics import record_deduction, record_request
 
-Base.metadata.create_all(bind=engine)
+# We'll import the seed function dynamically to avoid circular imports
+# or path issues if not strictly necessary at top level.
 
-app = FastAPI(title="Stock Service", version="1.0.0")
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    # Startup: create tables
+    Base.metadata.create_all(bind=engine)
+    
+    # Seed default items if missing
+    try:
+        from seed_fixed_items import seed
+        seed()
+    except ImportError:
+        pass  # In case the file is not found in the path
+    except Exception as e:
+        print(f"Seeding failed: {e}")
+        
+    yield
+
+app = FastAPI(title="Stock Service", version="1.0.0", lifespan=lifespan)
 
 
 @app.middleware("http")
