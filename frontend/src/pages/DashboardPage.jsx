@@ -7,7 +7,7 @@ import { getOrders } from '../api/orderApi';
 import Loader from '../components/common/Loader';
 import Input from '../components/common/Input';
 import Button from '../components/common/Button';
-import { ROUTES } from '../utils/constants';
+import { ROUTES, MENU_ITEMS } from '../utils/constants';
 
 const DashboardPage = () => {
   const [searchParams, setSearchParams] = useSearchParams();
@@ -104,8 +104,8 @@ const DashboardPage = () => {
                 <div 
                   key={order.order_id}
                   onClick={() => handleOrderClick(order.order_id)}
-                  className={`p-4 cursor-pointer hover:bg-blue-50 transition-colors ${
-                    order.order_id === orderId ? 'bg-blue-50 border-l-4 border-blue-500' : ''
+                  className={`p-4 cursor-pointer hover:bg-emerald-50 transition-colors ${
+                    order.order_id === orderId ? 'bg-emerald-50 border-l-4 border-emerald-500' : ''
                   }`}
                 >
                   <div className="flex justify-between items-start mb-1">
@@ -118,7 +118,9 @@ const DashboardPage = () => {
                   </div>
                   <div className="flex justify-between items-center">
                     <div>
-                      <span className="text-gray-800 font-medium">{order.item_id === '1' ? 'Burger' : order.item_id === '2' ? 'Pizza' : 'Item ' + order.item_id}</span>
+                      <span className="text-gray-800 font-medium">
+                        {MENU_ITEMS.find(i => i.id === order.item_id)?.name || 'Item ' + order.item_id}
+                      </span>
                       <span className="text-gray-500 text-sm ml-2">x{order.quantity}</span>
                     </div>
                     <StatusBadge status={order.status} size="sm" />
@@ -155,11 +157,11 @@ const DashboardPage = () => {
 
                 <StatusStepper currentStatus={currentStatus} />
 
-                <div className="mt-12 text-center p-6 bg-blue-50 rounded-lg border border-blue-100">
-                  <h3 className="text-lg font-semibold text-blue-900 mb-2">
+                <div className="mt-12 text-center p-6 bg-emerald-50 rounded-lg border border-emerald-100">
+                  <h3 className="text-lg font-semibold text-emerald-900 mb-2">
                     {currentStatus === 'READY' ? 'Ready for Pickup!' : 'Order in Progress'}
                   </h3>
-                  <p className="text-blue-700">
+                  <p className="text-emerald-700">
                     {currentStatus === 'READY' 
                       ? "Your delicious meal is waiting for you at the counter. Enjoy!"
                       : "Sit tight! We're preparing your order with care."}
@@ -169,7 +171,6 @@ const DashboardPage = () => {
             </div>
           ) : (
             <div className="bg-white rounded-xl shadow-md border border-gray-100 p-8 text-center h-full flex flex-col justify-center items-center min-h-[400px]">
-              <div className="text-6xl mb-4">🍽️</div>
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Select an Order</h2>
               <p className="text-gray-500 mb-8 max-w-md">
                 Select an order from the list on the left to view its real-time status details.
