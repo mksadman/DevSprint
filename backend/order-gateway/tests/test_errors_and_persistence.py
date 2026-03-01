@@ -222,7 +222,8 @@ def test_kitchen_publish_contains_correct_data(mock_publish, mock_deduct, mock_s
     )
 
     mock_publish.assert_called_once()
-    event = mock_publish.call_args[0][0]
+    # First arg is the db session, second is the event dict
+    event = mock_publish.call_args[0][1]
     assert event["order_id"] == oid
     assert event["item_id"] == "pasta"
     assert event["quantity"] == 1

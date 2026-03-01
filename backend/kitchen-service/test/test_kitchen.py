@@ -25,7 +25,7 @@ from app.schemas.status import KitchenStatusUpdate, HealthResponse, MetricsRespo
 @pytest.fixture(autouse=True)
 def reset_state():
     """Reset the in-memory queue and counters between tests."""
-    processor._in_memory_queue.clear()
+    processor._orders.clear()
     processor._seen_order_ids.clear()
     processor._store["total_orders_received"] = 0
     processor._store["total_orders_processed"] = 0

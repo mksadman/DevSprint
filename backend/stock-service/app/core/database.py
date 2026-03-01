@@ -3,7 +3,16 @@ from sqlalchemy.orm import declarative_base, sessionmaker
 
 from app.core.config import DATABASE_URL
 
-engine = create_engine(DATABASE_URL)
+_pool_kwargs: dict = {}
+if DATABASE_URL and not DATABASE_URL.startswith("sqlite"):
+    _pool_kwargs = {
+        "pool_size": 20,
+        "max_overflow": 10,
+        "pool_recycle": 300,
+        "pool_pre_ping": True,
+    }
+
+engine = create_engine(DATABASE_URL, **_pool_kwargs)
 SessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
 Base = declarative_base()
 

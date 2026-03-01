@@ -24,7 +24,7 @@ from sqlalchemy import create_engine
 from sqlalchemy.orm import sessionmaker
 from sqlalchemy.pool import StaticPool
 
-from app.core.database import Base, get_db
+from app.core.database import Base, get_db, get_session_factory
 from app.main import app
 
 # In-memory SQLite — shared across a single test so the same connection is reused.
@@ -44,7 +44,14 @@ def _override_get_db():
         db.close()
 
 
+def _override_session_factory():
+    """Return the test-local session factory so short-lived sessions
+    in the handler use the same in-memory SQLite database."""
+    return _TestSessionLocal
+
+
 app.dependency_overrides[get_db] = _override_get_db
+app.dependency_overrides[get_session_factory] = _override_session_factory
 
 
 @pytest.fixture(autouse=True)
@@ -53,6 +60,7 @@ def _reset_tables():
     # Import models so they are registered on Base.metadata
     import app.models.order  # noqa: F401
     import app.models.idempotency  # noqa: F401
+    import app.models.outbox  # noqa: F401
 
     Base.metadata.create_all(bind=_test_engine)
     yield

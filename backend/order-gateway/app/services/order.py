@@ -1,4 +1,6 @@
 import logging
+import threading
+import time
 from typing import Any
 
 import httpx
@@ -6,6 +8,73 @@ import httpx
 from app.core.config import settings
 
 logger = logging.getLogger(__name__)
+
+
+# ── Circuit Breaker ────────────────────────────────────────────────────────
+
+
+class _CircuitBreaker:
+    """
+    Three-state circuit breaker: CLOSED → OPEN → HALF_OPEN → CLOSED.
+
+    While OPEN, requests are rejected immediately without hitting the
+    downstream service, preventing cascade failures.
+    """
+
+    def __init__(self, failure_threshold: int = 5, recovery_timeout: float = 30.0):
+        self._lock = threading.Lock()
+        self._failure_threshold = failure_threshold
+        self._recovery_timeout = recovery_timeout
+        self._failures = 0
+        self._state = "CLOSED"
+        self._opened_at = 0.0
+
+    # -- state transitions ---------------------------------------------------
+
+    def record_success(self) -> None:
+        with self._lock:
+            self._failures = 0
+            self._state = "CLOSED"
+
+    def record_failure(self) -> None:
+        with self._lock:
+            self._failures += 1
+            if self._failures >= self._failure_threshold:
+                self._state = "OPEN"
+                self._opened_at = time.monotonic()
+                logger.warning(
+                    "Circuit breaker OPEN after %d failures (recovery in %ds)",
+                    self._failures, self._recovery_timeout,
+                )
+
+    def allow_request(self) -> bool:
+        with self._lock:
+            if self._state == "CLOSED":
+                return True
+            if self._state == "OPEN":
+                if time.monotonic() - self._opened_at >= self._recovery_timeout:
+                    self._state = "HALF_OPEN"
+                    logger.info("Circuit breaker HALF_OPEN — allowing probe request")
+                    return True
+                return False
+            # HALF_OPEN — allow one probe request
+            return True
+
+    @property
+    def state(self) -> str:
+        with self._lock:
+            if (
+                self._state == "OPEN"
+                and time.monotonic() - self._opened_at >= self._recovery_timeout
+            ):
+                self._state = "HALF_OPEN"
+            return self._state
+
+
+_breaker = _CircuitBreaker(failure_threshold=5, recovery_timeout=30)
+
+
+# ── HTTP client ────────────────────────────────────────────────────────────
 
 
 def _timeout() -> httpx.Timeout:
@@ -38,20 +107,36 @@ async def deduct_stock(order_id: str, item_id: str, quantity: int) -> dict[str, 
     """
     Call stock-service to atomically verify and decrement stock.
 
-    Returns:
-        Parsed JSON response body on success (HTTP 2xx).
+    The circuit breaker rejects requests immediately when the downstream
+    service has been failing, preventing connection-pool exhaustion.
 
     Raises:
         httpx.HTTPStatusError  — for any 4xx / 5xx response from stock-service.
         httpx.TimeoutException — when the call exceeds GATEWAY_TIMEOUT_MS.
+        httpx.ConnectError     — when the circuit breaker is OPEN.
     """
+    if not _breaker.allow_request():
+        raise httpx.ConnectError("Circuit breaker OPEN — stock service unavailable")
+
     url = f"{settings.STOCK_SERVICE_URL.rstrip('/')}/stock/deduct"
     payload = {"order_id": order_id, "item_id": item_id, "quantity": quantity}
 
-    client = _get_client()
-    response = await client.post(url, json=payload)
-    response.raise_for_status()
-    return response.json()
+    try:
+        client = _get_client()
+        response = await client.post(url, json=payload)
+        response.raise_for_status()
+        _breaker.record_success()
+        return response.json()
+    except (httpx.TimeoutException, httpx.ConnectError, OSError) as exc:
+        _breaker.record_failure()
+        raise
+    except httpx.HTTPStatusError as exc:
+        # Only trip the breaker on server errors (5xx), not client errors (4xx)
+        if exc.response.status_code >= 500:
+            _breaker.record_failure()
+        else:
+            _breaker.record_success()
+        raise
 
 
 async def stock_health_ping() -> bool:

@@ -6,7 +6,7 @@ from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import Base, engine
 from app.routers import order, health, metrics
-from app.services.queue import close_rabbitmq
+from app.services.queue import close_rabbitmq, start_outbox_relay
 from app.services.order import close_http_client
 
 logging.basicConfig(
@@ -21,7 +21,9 @@ async def lifespan(application: FastAPI):
     if engine is not None:
         import app.models.order  # noqa: F401
         import app.models.idempotency  # noqa: F401
+        import app.models.outbox  # noqa: F401
         Base.metadata.create_all(bind=engine)
+    start_outbox_relay()
     yield
     await close_rabbitmq()
     await close_http_client()

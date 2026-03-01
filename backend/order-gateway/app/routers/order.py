@@ -2,14 +2,15 @@ import hashlib
 import json
 import logging
 import time
-from typing import Annotated
+from contextlib import contextmanager
+from typing import Annotated, Callable
 
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
 from sqlalchemy.orm import Session
 
-from app.core.database import get_db
+from app.core.database import get_db, get_session_factory
 from app.models.idempotency import IdempotencyKey, IdempotencyStatus
 from app.models.order import GatewayOrder, OrderStatus
 from app.schemas.order import OrderRequest, OrderResponse, OrderListResponse, OrderSummary
@@ -34,6 +35,32 @@ def _request_hash(request: OrderRequest) -> str:
     return hashlib.sha256(canonical.encode()).hexdigest()
 
 
+@contextmanager
+def _short_session(factory: Callable):
+    """Open a DB session and guarantee it is closed (connection returned to pool)."""
+    db = factory()
+    try:
+        yield db
+    finally:
+        db.close()
+
+
+def _mark_idempotency_failed(
+    db_factory: Callable, order_id, detail: str,
+) -> None:
+    """Update the idempotency record to FAILED in its own short-lived session."""
+    with _short_session(db_factory) as db:
+        idem = (
+            db.query(IdempotencyKey)
+            .filter(IdempotencyKey.order_id == order_id)
+            .first()
+        )
+        if idem:
+            idem.status = IdempotencyStatus.FAILED.value
+            idem.response_payload = {"detail": detail}
+            db.commit()
+
+
 @router.post(
     "/order",
     response_model=OrderResponse,
@@ -45,7 +72,7 @@ async def place_order(
     credentials: Annotated[
         HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)
     ],
-    db: Session = Depends(get_db),
+    db_factory: Callable = Depends(get_session_factory),
 ) -> OrderResponse:
     start = time.perf_counter()
     metrics.increment_total_attempts()
@@ -53,38 +80,36 @@ async def place_order(
     payload = validate_token(credentials)
     student_id: str = payload["student_id"]
 
-    # ── Idempotency check ──────────────────────────────────────────────
-    existing_key = (
-        db.query(IdempotencyKey)
-        .filter(IdempotencyKey.order_id == request.order_id)
-        .first()
-    )
-    if existing_key is not None:
-        # Already processed — return the stored response without re-deducting
-        if existing_key.status == IdempotencyStatus.CONFIRMED.value:
-            metrics.record_latency((time.perf_counter() - start) * 1000)
-            return OrderResponse(order_id=request.order_id, status=OrderStatus.CONFIRMED.value)
-        if existing_key.status == IdempotencyStatus.FAILED.value:
-            metrics.increment_rejected()
-            metrics.record_latency((time.perf_counter() - start) * 1000)
-            detail = (existing_key.response_payload or {}).get("detail", "Previously rejected")
-            raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
+    # ── Phase 1: Idempotency check (short-lived session) ───────────
+    with _short_session(db_factory) as db:
+        existing_key = (
+            db.query(IdempotencyKey)
+            .filter(IdempotencyKey.order_id == request.order_id)
+            .first()
+        )
+        if existing_key is not None:
+            if existing_key.status == IdempotencyStatus.CONFIRMED.value:
+                metrics.record_latency((time.perf_counter() - start) * 1000)
+                return OrderResponse(order_id=request.order_id, status=OrderStatus.CONFIRMED.value)
+            if existing_key.status == IdempotencyStatus.FAILED.value:
+                metrics.increment_rejected()
+                metrics.record_latency((time.perf_counter() - start) * 1000)
+                detail = (existing_key.response_payload or {}).get("detail", "Previously rejected")
+                raise HTTPException(status_code=status.HTTP_409_CONFLICT, detail=detail)
 
-    # ── Create idempotency record (RECEIVED) ───────────────────────────
-    idem_record = IdempotencyKey(
-        order_id=request.order_id,
-        request_hash=_request_hash(request),
-        status=IdempotencyStatus.RECEIVED.value,
-    )
-    db.add(idem_record)
-    db.flush()  # write to DB so a concurrent request sees it
+        idem_record = IdempotencyKey(
+            order_id=request.order_id,
+            request_hash=_request_hash(request),
+            status=IdempotencyStatus.RECEIVED.value,
+        )
+        db.add(idem_record)
+        db.commit()
+    # ← DB connection returned to pool
 
-    # ── Cache short-circuit ──────────────────────────────────────────────
+    # ── Phase 2: Cache short-circuit (NO DB session held) ──────────
     cached = await get_cached_stock(request.item_id)
     if cached is not None and cached == 0:
-        idem_record.status = IdempotencyStatus.FAILED.value
-        idem_record.response_payload = {"detail": "Item is out of stock"}
-        db.commit()
+        _mark_idempotency_failed(db_factory, request.order_id, "Item is out of stock")
         metrics.increment_cache_short_circuits()
         metrics.increment_rejected()
         metrics.record_latency((time.perf_counter() - start) * 1000)
@@ -93,7 +118,7 @@ async def place_order(
             detail="Item is out of stock",
         )
 
-    # ── Stock deduction ────────────────────────────────────────────────
+    # ── Phase 3: Stock deduction (NO DB session held) ──────────────
     try:
         stock_response = await deduct_stock(
             order_id=str(request.order_id),
@@ -101,9 +126,7 @@ async def place_order(
             quantity=request.quantity,
         )
     except httpx.TimeoutException:
-        idem_record.status = IdempotencyStatus.FAILED.value
-        idem_record.response_payload = {"detail": "Stock service did not respond in time"}
-        db.commit()
+        _mark_idempotency_failed(db_factory, request.order_id, "Stock service did not respond in time")
         metrics.increment_downstream_failures()
         metrics.increment_rejected()
         metrics.record_latency((time.perf_counter() - start) * 1000)
@@ -121,18 +144,14 @@ async def place_order(
         if upstream_status == status.HTTP_409_CONFLICT:
             await set_cached_stock(request.item_id, 0)
 
-        idem_record.status = IdempotencyStatus.FAILED.value
-        idem_record.response_payload = {"detail": str(detail)}
-        db.commit()
+        _mark_idempotency_failed(db_factory, request.order_id, str(detail))
         metrics.increment_downstream_failures()
         metrics.increment_rejected()
         metrics.record_latency((time.perf_counter() - start) * 1000)
         raise HTTPException(status_code=upstream_status, detail=detail)
     except Exception as exc:
         logger.error("Unexpected error calling stock-service: %s", exc)
-        idem_record.status = IdempotencyStatus.FAILED.value
-        idem_record.response_payload = {"detail": "Stock service is unavailable"}
-        db.commit()
+        _mark_idempotency_failed(db_factory, request.order_id, "Stock service is unavailable")
         metrics.increment_downstream_failures()
         metrics.increment_rejected()
         metrics.record_latency((time.perf_counter() - start) * 1000)
@@ -145,28 +164,38 @@ async def place_order(
     if remaining is not None:
         await set_cached_stock(request.item_id, int(remaining))
 
-    # ── Persist order & confirm idempotency ────────────────────────────
-    order_record = GatewayOrder(
-        order_id=request.order_id,
-        student_id=student_id,
-        item_id=request.item_id,
-        quantity=request.quantity,
-        status=OrderStatus.CONFIRMED.value,
-    )
-    db.add(order_record)
-    idem_record.status = IdempotencyStatus.CONFIRMED.value
-    idem_record.response_payload = {"order_id": str(request.order_id), "status": OrderStatus.CONFIRMED.value}
-    db.commit()
+    # ── Phase 4: Persist order + outbox event (short-lived session) ─
+    with _short_session(db_factory) as db:
+        order_record = GatewayOrder(
+            order_id=request.order_id,
+            student_id=student_id,
+            item_id=request.item_id,
+            quantity=request.quantity,
+            status=OrderStatus.CONFIRMED.value,
+        )
+        db.add(order_record)
 
-    # ── Publish to kitchen AFTER commit (fire-and-forget) ──────────────
-    publish_order_event(
-        {
+        idem = (
+            db.query(IdempotencyKey)
+            .filter(IdempotencyKey.order_id == request.order_id)
+            .first()
+        )
+        if idem:
+            idem.status = IdempotencyStatus.CONFIRMED.value
+            idem.response_payload = {
+                "order_id": str(request.order_id),
+                "status": OrderStatus.CONFIRMED.value,
+            }
+
+        # Outbox: event is written in the SAME transaction as the order
+        publish_order_event(db, {
             "order_id": str(request.order_id),
             "item_id": request.item_id,
             "quantity": request.quantity,
             "student_id": student_id,
-        }
-    )
+        })
+        db.commit()
+    # ← DB connection returned to pool
 
     elapsed_ms = (time.perf_counter() - start) * 1000
     metrics.increment_successful()
