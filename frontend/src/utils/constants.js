@@ -15,6 +15,7 @@ export const ROUTES = {
   REGISTER: '/register',
   ORDER: '/order',
   DASHBOARD: '/dashboard',
+  ADMIN: '/admin',
 };
 
 export const MENU_ITEMS = [

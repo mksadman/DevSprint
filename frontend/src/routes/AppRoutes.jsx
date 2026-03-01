@@ -4,6 +4,7 @@ import Login from '../pages/LoginPage';
 import Register from '../pages/RegisterPage';
 import Order from '../pages/OrderPage';
 import Dashboard from '../pages/DashboardPage';
+import AdminPage from '../pages/AdminPage';
 import useAuth from '../hooks/useAuth';
 import MainLayout from '../components/layout/MainLayout';
 import { ROUTES } from '../utils/constants';
@@ -48,6 +49,14 @@ const AppRoutes = () => {
             <PrivateRoute>
               <Dashboard />
             </PrivateRoute>
+          } 
+        />
+        <Route 
+          path="/admin" 
+          element={
+            <MainLayout>
+              <AdminPage />
+            </MainLayout>
           } 
         />
         <Route path="*" element={<Navigate to={ROUTES.LOGIN} />} />

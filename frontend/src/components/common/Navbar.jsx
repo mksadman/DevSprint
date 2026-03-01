@@ -40,6 +40,14 @@ const Navbar = () => {
               >
                 Track Order
               </Link>
+              <Link
+                to={ROUTES.ADMIN}
+                className={`px-3 py-2 rounded-md text-sm font-medium transition-colors ${
+                  isActive(ROUTES.ADMIN) ? 'bg-emerald-700 text-white' : 'text-emerald-100 hover:bg-emerald-500'
+                }`}
+              >
+                Admin
+              </Link>
             </div>
           </div>
           
