@@ -14,11 +14,11 @@ from app.schemas.auth import (
     RegisterResponse,
     UserResponse,
 )
+from app.rate_limit import is_rate_limited
 from app.services.auth import (
     authenticate_student,
     create_access_token,
     decode_access_token,
-    is_rate_limited,
     record_login_attempt,
     register_student,
 )
