@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     REDIS_PORT: int
     STOCK_SERVICE_URL: str
     RABBITMQ_URL: str = "amqp://guest:guest@rabbitmq:5672/"
+    INTERNAL_API_KEY: str = "internal-service-key-2026"
     GATEWAY_TIMEOUT_MS: int
 
     @field_validator("REDIS_PORT")

@@ -6,11 +6,6 @@ DATABASE_URL: str = os.getenv(
     "postgresql://cafeteria:cafeteria_pass@postgres:5432/cafeteria_db",
 )
 
-NOTIFICATION_SERVICE_URL: str = os.getenv(
-    "NOTIFICATION_SERVICE_URL",
-    "http://notification-service:8000",
-)
-
 RABBITMQ_URL: str = os.getenv(
     "RABBITMQ_URL",
     "amqp://guest:guest@rabbitmq:5672/",

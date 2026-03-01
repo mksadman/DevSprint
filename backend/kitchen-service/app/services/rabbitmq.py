@@ -79,15 +79,22 @@ async def _get_channel() -> aio_pika.abc.AbstractChannel:
 
 async def _on_message(message: AbstractIncomingMessage) -> None:
     """Callback invoked for every message on ``kitchen_queue``."""
-    async with message.process():
-        try:
-            data = json.loads(message.body.decode())
-            event = KitchenOrderEvent(**data)
-            record = enqueue_order(event)
+    try:
+        data = json.loads(message.body.decode())
+        event = KitchenOrderEvent(**data)
+        record = enqueue_order(event)
+        # enqueue_order is idempotent — returns existing record for duplicates.
+        # Only spawn processing if the order is freshly QUEUED.
+        if record["status"] == "QUEUED":
             asyncio.create_task(process_order_background(record))
-            logger.info("Order consumed from RabbitMQ: order_id=%s", data.get("order_id"))
-        except Exception as exc:
-            logger.error("Failed to process RabbitMQ message: %s", exc)
+        await message.ack()
+        logger.info("Order consumed from RabbitMQ: order_id=%s", data.get("order_id"))
+    except Exception as exc:
+        logger.error("Failed to process RabbitMQ message: %s", exc)
+        try:
+            await message.nack(requeue=False)
+        except Exception:
+            pass
 
 
 async def start_consumer() -> None:

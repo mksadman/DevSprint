@@ -9,6 +9,7 @@ x-common-env: &common-env
   REDIS_URL: redis://redis:6379/0
   RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
   JWT_SECRET: super-secret-hackathon-key
+  INTERNAL_API_KEY: internal-service-key-2026
 
 services:
   # ---------------------------------------------------------------------------

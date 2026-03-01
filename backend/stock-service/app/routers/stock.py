@@ -1,9 +1,10 @@
 from typing import Any, List, Optional
 from uuid import UUID
 
-from fastapi import APIRouter, Depends, Query
+from fastapi import APIRouter, Depends, Header, HTTPException, Query, status
 from sqlalchemy.orm import Session
 
+from app.core.config import INTERNAL_API_KEY
 from app.core.database import get_db
 from app.schemas.stock import StockDeductRequest, StockTransactionResponse
 from app.services import stock as stock_service
@@ -12,10 +13,23 @@ from app.services.auth import require_auth
 router = APIRouter(tags=["stock"])
 
 
-# /stock/deduct is an INTERNAL service-to-service call (order-gateway → stock)
-# and does NOT require JWT. The order-gateway already validated the user's JWT.
+def _require_internal_key(
+    x_internal_key: str | None = Header(None, alias="X-Internal-Key"),
+) -> None:
+    """Verify the caller provides the correct internal service-to-service key."""
+    if x_internal_key != INTERNAL_API_KEY:
+        raise HTTPException(
+            status_code=status.HTTP_401_UNAUTHORIZED,
+            detail="Invalid or missing internal API key",
+        )
+
+
 @router.post("/stock/deduct", status_code=200)
-def deduct_stock(request: StockDeductRequest, db: Session = Depends(get_db)):
+def deduct_stock(
+    request: StockDeductRequest,
+    db: Session = Depends(get_db),
+    _key: None = Depends(_require_internal_key),
+):
     return stock_service.deduct_stock(db, request)
 
 

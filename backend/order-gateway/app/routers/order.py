@@ -79,9 +79,6 @@ async def place_order(
     db.add(idem_record)
     db.flush()  # write to DB so a concurrent request sees it
 
-    payload = validate_token(credentials)
-    student_id: str = payload["student_id"]
-
     # ── Cache short-circuit ──────────────────────────────────────────────
     cached = await get_cached_stock(request.item_id)
     if cached is not None and cached == 0:
@@ -148,16 +145,6 @@ async def place_order(
     if remaining is not None:
         await set_cached_stock(request.item_id, int(remaining))
 
-    # ── Publish to kitchen (fire-and-forget) ───────────────────────────
-    publish_order_event(
-        {
-            "order_id": str(request.order_id),
-            "item_id": request.item_id,
-            "quantity": request.quantity,
-            "student_id": student_id,
-        }
-    )
-
     # ── Persist order & confirm idempotency ────────────────────────────
     order_record = GatewayOrder(
         order_id=request.order_id,
@@ -170,6 +157,16 @@ async def place_order(
     idem_record.status = IdempotencyStatus.CONFIRMED.value
     idem_record.response_payload = {"order_id": str(request.order_id), "status": OrderStatus.CONFIRMED.value}
     db.commit()
+
+    # ── Publish to kitchen AFTER commit (fire-and-forget) ──────────────
+    publish_order_event(
+        {
+            "order_id": str(request.order_id),
+            "item_id": request.item_id,
+            "quantity": request.quantity,
+            "student_id": student_id,
+        }
+    )
 
     elapsed_ms = (time.perf_counter() - start) * 1000
     metrics.increment_successful()

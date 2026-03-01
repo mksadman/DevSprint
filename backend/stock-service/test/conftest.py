@@ -12,6 +12,7 @@ import sys
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
 os.environ.setdefault("JWT_SECRET", "test-secret")
 os.environ.setdefault("JWT_ALGORITHM", "HS256")
+os.environ.setdefault("INTERNAL_API_KEY", "test-internal-key")
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -26,6 +27,7 @@ from app.main import app
 from app.core.database import Base, get_db
 from app.services import metrics as metrics_module
 from app.services.auth import require_auth
+from app.routers.stock import _require_internal_key
 
 # ---------------------------------------------------------------------------
 # Single shared engine — all tests use this one DB
@@ -64,6 +66,8 @@ def setup_db():
     app.dependency_overrides[get_db] = override_get_db
     # Bypass JWT auth for tests
     app.dependency_overrides[require_auth] = _fake_auth
+    # Bypass internal API key check for tests
+    app.dependency_overrides[_require_internal_key] = lambda: None
 
     # Reset in-memory metrics
     metrics_module.metrics["total_requests"] = 0

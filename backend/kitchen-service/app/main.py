@@ -4,6 +4,7 @@ from contextlib import asynccontextmanager
 from fastapi import FastAPI
 
 from app.routers import queue
+from app.core.database import Base, engine
 from app.services.rabbitmq import start_consumer, close_rabbitmq
 
 logging.basicConfig(
@@ -17,6 +18,14 @@ logger = logging.getLogger(__name__)
 @asynccontextmanager
 async def lifespan(application: FastAPI):
     """Start the RabbitMQ consumer on startup and close on shutdown."""
+    # Create DB tables for KitchenOrder / OrderStatusHistory
+    try:
+        import app.models.job  # noqa: F401
+        Base.metadata.create_all(bind=engine)
+        logger.info("Kitchen tables created")
+    except Exception as exc:
+        logger.warning("Kitchen DB table creation failed: %s", exc)
+
     try:
         import asyncio
         await asyncio.wait_for(start_consumer(), timeout=2.0)

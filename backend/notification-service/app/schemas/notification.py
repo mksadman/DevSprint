@@ -1,6 +1,7 @@
 from __future__ import annotations
 
-from typing import Annotated
+from datetime import datetime
+from typing import Annotated, List
 from uuid import UUID
 from pydantic import BaseModel, Field
 
@@ -9,6 +10,17 @@ class NotificationEvent(BaseModel):
     order_id: UUID
     student_id: str
     status: str
+
+
+class NotificationRecord(BaseModel):
+    """A persisted notification — returned by the history endpoint."""
+    order_id: UUID
+    student_id: str
+    status_sent: str
+    sent_at: datetime
+
+    class Config:
+        from_attributes = True
 
 
 class WebSocketMessage(BaseModel):

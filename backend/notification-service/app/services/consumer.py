@@ -40,24 +40,41 @@ def get_notifications_persisted() -> int:
 async def _on_message(message: AbstractIncomingMessage) -> None:
     """Process an incoming kitchen status event."""
     global _messages_consumed, _notifications_persisted
-    async with message.process():
+    try:
+        data = json.loads(message.body.decode())
+        order_id = data.get("order_id", "")
+        student_id = data.get("student_id", "")
+        status = data.get("status", "")
+
+        logger.info(
+            "Consumed notification event: order_id=%s student=%s status=%s",
+            order_id, student_id, status,
+        )
+        _messages_consumed += 1
+
+        # Persist to DB — manual ack only after successful commit
         try:
-            data = json.loads(message.body.decode())
-            order_id = data.get("order_id", "")
-            student_id = data.get("student_id", "")
-            status = data.get("status", "")
-
-            logger.info(
-                "Consumed notification event: order_id=%s student=%s status=%s",
-                order_id, student_id, status,
-            )
-            _messages_consumed += 1
-
-            # Persist to DB
+            from app.core.database import SessionLocal
+            from app.models.connection import Notification
+            from sqlalchemy import text
+            db = SessionLocal()
             try:
-                from app.core.database import SessionLocal
-                from app.models.connection import Notification
-                db = SessionLocal()
+                # Idempotency: skip if (order_id, status_sent) already exists
+                existing = db.execute(
+                    text(
+                        "SELECT id FROM notifications "
+                        "WHERE order_id = :oid AND status_sent = :st LIMIT 1"
+                    ),
+                    {"oid": order_id, "st": status},
+                ).first()
+                if existing:
+                    logger.info(
+                        "Duplicate notification skipped: order_id=%s status=%s",
+                        order_id, status,
+                    )
+                    await message.ack()
+                    return
+
                 notif = Notification(
                     order_id=order_id,
                     student_id=student_id,
@@ -65,24 +82,34 @@ async def _on_message(message: AbstractIncomingMessage) -> None:
                 )
                 db.add(notif)
                 db.commit()
-                db.close()
                 _notifications_persisted += 1
-            except Exception as exc:
-                logger.warning("Failed to persist notification: %s", exc)
-
-            # Push to student's WebSocket connections
-            ws_message = json.dumps({
-                "event": "order_status",
-                "payload": {
-                    "order_id": order_id,
-                    "student_id": student_id,
-                    "status": status,
-                },
-            })
-            await send_to_student(student_id, ws_message)
-
+            finally:
+                db.close()
         except Exception as exc:
-            logger.error("Failed to process notification message: %s", exc)
+            logger.warning("Failed to persist notification: %s — nacking message", exc)
+            await message.nack(requeue=True)
+            return
+
+        # Ack after successful DB commit
+        await message.ack()
+
+        # Push to student's WebSocket connections (best effort)
+        ws_message = json.dumps({
+            "event": "order_status",
+            "payload": {
+                "order_id": order_id,
+                "student_id": student_id,
+                "status": status,
+            },
+        })
+        await send_to_student(student_id, ws_message)
+
+    except Exception as exc:
+        logger.error("Failed to process notification message: %s", exc)
+        try:
+            await message.nack(requeue=False)
+        except Exception:
+            pass
 
 
 async def start_consumer() -> None:

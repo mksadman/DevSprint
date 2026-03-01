@@ -1,13 +1,20 @@
 import json
 import logging
+from datetime import datetime, timezone
+from typing import List, Optional
 
-from fastapi import APIRouter, Depends, HTTPException
+from fastapi import APIRouter, Depends, HTTPException, Query
 from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db
 from app.models.connection import Notification
-from app.schemas.notification import HealthResponse, MetricsResponse, NotificationEvent
+from app.schemas.notification import (
+    HealthResponse,
+    MetricsResponse,
+    NotificationEvent,
+    NotificationRecord,
+)
 from app.services.notifier import (
     broadcast,
     get_active_connection_count,
@@ -96,3 +103,26 @@ async def notify(event: NotificationEvent, db: Session = Depends(get_db)):
         "delivered_to": delivered,
         "active_connections": get_active_connection_count(),
     }
+
+
+@router.get("/notifications", response_model=List[NotificationRecord])
+async def get_notifications(
+    student_id: str = Query(..., min_length=1, description="Student ID to query"),
+    since: Optional[datetime] = Query(
+        None,
+        description="Return only notifications after this ISO-8601 timestamp",
+    ),
+    limit: int = Query(50, ge=1, le=200),
+    db: Session = Depends(get_db),
+) -> List[NotificationRecord]:
+    """
+    Retrieve persisted notifications for a student.
+
+    Clients that reconnect after a WebSocket drop can call this endpoint
+    to recover any notifications they missed.
+    """
+    query = db.query(Notification).filter(Notification.student_id == student_id)
+    if since is not None:
+        query = query.filter(Notification.sent_at > since)
+    rows = query.order_by(Notification.sent_at.desc()).limit(limit).all()
+    return rows
