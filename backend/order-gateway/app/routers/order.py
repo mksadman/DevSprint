@@ -12,7 +12,7 @@ from sqlalchemy.orm import Session
 from app.core.database import get_db
 from app.models.idempotency import IdempotencyKey, IdempotencyStatus
 from app.models.order import GatewayOrder, OrderStatus
-from app.schemas.order import OrderRequest, OrderResponse
+from app.schemas.order import OrderRequest, OrderResponse, OrderListResponse, OrderSummary
 from app.services.auth import validate_token
 from app.services.cache import get_cached_stock, set_cached_stock
 from app.services.metrics import metrics
@@ -179,3 +179,27 @@ async def place_order(
         elapsed_ms,
     )
     return OrderResponse(order_id=request.order_id, status=OrderStatus.CONFIRMED.value)
+
+
+@router.get(
+    "/orders",
+    response_model=OrderListResponse,
+    summary="List all orders for the current user",
+)
+async def list_orders(
+    credentials: Annotated[
+        HTTPAuthorizationCredentials | None, Depends(_bearer_scheme)
+    ],
+    db: Session = Depends(get_db),
+) -> OrderListResponse:
+    payload = validate_token(credentials)
+    student_id: str = payload["student_id"]
+
+    orders = (
+        db.query(GatewayOrder)
+        .filter(GatewayOrder.student_id == student_id)
+        .order_by(GatewayOrder.created_at.desc())
+        .all()
+    )
+
+    return OrderListResponse(orders=orders)
