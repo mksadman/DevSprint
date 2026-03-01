@@ -102,9 +102,19 @@ jobs:
       - name: Verify containers start
         run: |
           docker compose up -d
-          sleep 15
-          # Health checks
-          curl -f http://localhost:8001/health || exit 1
-          curl -f http://localhost:8002/health || exit 1
-          curl -f http://localhost:8000/health || exit 1
+          # Wait for infrastructure health checks (postgres, redis, rabbitmq)
+          echo "Waiting for services to become healthy..."
+          sleep 30
+          # Retry health checks with backoff
+          for port in 8001 8002 8000; do
+            for i in 1 2 3 4 5; do
+              if curl -sf http://localhost:$port/health > /dev/null 2>&1; then
+                echo "localhost:$port/health — OK"
+                break
+              fi
+              echo "Attempt $i: localhost:$port/health not ready, retrying in 10s..."
+              sleep 10
+            done
+            curl -f http://localhost:$port/health || { docker compose logs; exit 1; }
+          done
           docker compose down
