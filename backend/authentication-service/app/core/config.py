@@ -6,6 +6,8 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     JWT_EXP_MINUTES: int = 60
 
+    DATABASE_URL: str = "postgresql://cafeteria:cafeteria_pass@postgres:5432/cafeteria_db"
+
     REDIS_HOST: str = "localhost"
     REDIS_PORT: int = 6379
 

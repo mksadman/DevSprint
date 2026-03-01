@@ -3,12 +3,15 @@ Shared test fixtures for the Stock Service test suite.
 
 Provides a single in-memory SQLite engine, session factory, and TestClient.
 The autouse fixture ensures every test gets a fresh database and reset metrics.
+JWT auth is bypassed for tests via a dependency override.
 """
 import os
 import sys
 
 # Set env BEFORE any app imports
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
+os.environ.setdefault("JWT_SECRET", "test-secret")
+os.environ.setdefault("JWT_ALGORITHM", "HS256")
 
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
@@ -22,6 +25,7 @@ from sqlalchemy.pool import StaticPool
 from app.main import app
 from app.core.database import Base, get_db
 from app.services import metrics as metrics_module
+from app.services.auth import require_auth
 
 # ---------------------------------------------------------------------------
 # Single shared engine — all tests use this one DB
@@ -42,6 +46,11 @@ def override_get_db():
         db.close()
 
 
+def _fake_auth():
+    """Bypass JWT validation in tests — return a dummy payload."""
+    return {"student_id": "test-user", "exp": 9999999999, "iat": 0}
+
+
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
@@ -53,6 +62,8 @@ def setup_db():
 
     # Set the override so all API endpoints use our test DB
     app.dependency_overrides[get_db] = override_get_db
+    # Bypass JWT auth for tests
+    app.dependency_overrides[require_auth] = _fake_auth
 
     # Reset in-memory metrics
     metrics_module.metrics["total_requests"] = 0

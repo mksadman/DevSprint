@@ -1,4 +1,4 @@
-from typing import List
+from typing import Any, List
 from uuid import UUID
 
 from fastapi import APIRouter, Depends, status
@@ -15,47 +15,48 @@ from app.schemas.inventory import (
     ItemUpdate,
 )
 from app.services import inventory as inventory_service
+from app.services.auth import require_auth
 
 router = APIRouter()
 
 
 # ---------------------------------------------------------------------------
-# Items
+# Items  (JWT-protected — admin / authenticated users only)
 # ---------------------------------------------------------------------------
 
 
 @router.post("/items", response_model=ItemResponse, status_code=status.HTTP_201_CREATED, tags=["items"])
-def create_item(item: ItemCreate, db: Session = Depends(get_db)):
+def create_item(item: ItemCreate, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth)):
     return inventory_service.create_item(db, item)
 
 
 @router.get("/items", response_model=List[ItemResponse], tags=["items"])
-def read_items(limit: int = 20, offset: int = 0, db: Session = Depends(get_db)):
+def read_items(limit: int = 20, offset: int = 0, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth)):
     return inventory_service.list_items(db, limit=limit, offset=offset)
 
 
 @router.get("/items/{item_id}", response_model=ItemResponse, tags=["items"])
-def read_item(item_id: UUID, db: Session = Depends(get_db)):
+def read_item(item_id: UUID, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth)):
     return inventory_service.get_item(db, item_id)
 
 
 @router.put("/items/{item_id}", response_model=ItemResponse, tags=["items"])
-def update_item(item_id: UUID, item_update: ItemCreate, db: Session = Depends(get_db)):
+def update_item(item_id: UUID, item_update: ItemCreate, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth)):
     return inventory_service.update_item(db, item_id, item_update)
 
 
 @router.patch("/items/{item_id}", response_model=ItemResponse, tags=["items"])
-def patch_item(item_id: UUID, item_update: ItemUpdate, db: Session = Depends(get_db)):
+def patch_item(item_id: UUID, item_update: ItemUpdate, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth)):
     return inventory_service.patch_item(db, item_id, item_update)
 
 
 @router.delete("/items/{item_id}", status_code=status.HTTP_204_NO_CONTENT, tags=["items"])
-def delete_item(item_id: UUID, db: Session = Depends(get_db)):
+def delete_item(item_id: UUID, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth)):
     inventory_service.delete_item(db, item_id)
 
 
 # ---------------------------------------------------------------------------
-# Inventory
+# Inventory  (JWT-protected — admin / authenticated users only)
 # ---------------------------------------------------------------------------
 
 
@@ -65,25 +66,25 @@ def delete_item(item_id: UUID, db: Session = Depends(get_db)):
     status_code=status.HTTP_201_CREATED,
     tags=["inventory"],
 )
-def create_inventory(inventory: InventoryCreate, db: Session = Depends(get_db)):
+def create_inventory(inventory: InventoryCreate, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth)):
     return inventory_service.create_inventory(db, inventory)
 
 
 @router.get("/inventory/{item_id}", response_model=InventoryResponse, tags=["inventory"])
-def get_inventory(item_id: UUID, db: Session = Depends(get_db)):
+def get_inventory(item_id: UUID, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth)):
     return inventory_service.get_inventory(db, item_id)
 
 
 @router.put("/inventory/{item_id}", response_model=InventoryResponse, tags=["inventory"])
 def update_inventory_quantity(
-    item_id: UUID, update_data: InventoryUpdate, db: Session = Depends(get_db)
+    item_id: UUID, update_data: InventoryUpdate, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth),
 ):
     return inventory_service.update_inventory_quantity(db, item_id, update_data)
 
 
 @router.patch("/inventory/{item_id}", response_model=InventoryResponse, tags=["inventory"])
 def adjust_inventory_quantity(
-    item_id: UUID, delta_data: InventoryDelta, db: Session = Depends(get_db)
+    item_id: UUID, delta_data: InventoryDelta, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth),
 ):
     return inventory_service.adjust_inventory_quantity(db, item_id, delta_data)
 
@@ -93,5 +94,5 @@ def adjust_inventory_quantity(
     status_code=status.HTTP_204_NO_CONTENT,
     tags=["inventory"],
 )
-def delete_inventory(item_id: UUID, db: Session = Depends(get_db)):
+def delete_inventory(item_id: UUID, db: Session = Depends(get_db), _user: dict[str, Any] = Depends(require_auth)):
     inventory_service.delete_inventory(db, item_id)

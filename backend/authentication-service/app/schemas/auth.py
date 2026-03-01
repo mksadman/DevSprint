@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+from datetime import datetime
 from typing import Literal, Annotated
 from pydantic import BaseModel, Field
 
@@ -12,6 +13,23 @@ class LoginRequest(BaseModel):
 class LoginResponse(BaseModel):
     access_token: str
     token_type: Literal["bearer"] = "bearer"
+
+
+class RegisterRequest(BaseModel):
+    student_id: Annotated[str, Field(min_length=1, max_length=50)]
+    password: Annotated[str, Field(min_length=6, max_length=72)]
+
+
+class RegisterResponse(BaseModel):
+    student_id: str
+    message: str
+
+
+class UserResponse(BaseModel):
+    student_id: str
+    created_at: datetime
+
+    model_config = {"from_attributes": True}
 
 
 class AuthErrorResponse(BaseModel):

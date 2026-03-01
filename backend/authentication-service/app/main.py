@@ -1,8 +1,33 @@
+from contextlib import asynccontextmanager
+
 from fastapi import FastAPI
 
+from app.core.database import engine
+from app.models.user import Base, User
 from app.routers import auth, health, metrics
+from app.services.auth import hash_password
 
-app = FastAPI(title="Authentication Service", version="1.0.0")
+
+def _seed_default_students(engine) -> None:
+    """Insert the two demo students if the users table is empty."""
+    from sqlalchemy.orm import Session
+
+    with Session(engine) as db:
+        if db.query(User).count() == 0:
+            db.add(User(student_id="student001", password_hash=hash_password("password123")))
+            db.add(User(student_id="student002", password_hash=hash_password("securepass!")))
+            db.commit()
+
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    # Startup: create tables and seed demo data
+    Base.metadata.create_all(bind=engine)
+    _seed_default_students(engine)
+    yield
+
+
+app = FastAPI(title="Authentication Service", version="1.0.0", lifespan=lifespan)
 
 app.include_router(auth.router)
 app.include_router(health.router)
