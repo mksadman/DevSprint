@@ -1,5 +1,5 @@
 """
-Unit tests for the authentication-service.
+Unit tests for the identity-provider.
 
 Redis calls are mocked throughout — no running Redis or Docker required.
 Database layer uses in-memory SQLite (configured in conftest.py).

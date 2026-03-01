@@ -61,8 +61,8 @@ services:
   # ---------------------------------------------------------------------------
   # Backend Microservices
   # ---------------------------------------------------------------------------
-  authentication-service:
-    build: ./backend/authentication-service
+  identity-provider:
+    build: ./backend/identity-provider
     ports:
       - "8001:8000"
     environment:
@@ -94,7 +94,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      authentication-service:
+      identity-provider:
         condition: service_started
       stock-service:
         condition: service_started

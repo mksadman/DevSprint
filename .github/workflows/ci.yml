@@ -67,7 +67,7 @@ jobs:
 
     defaults:
       run:
-        working-directory: backend/authentication-service
+        working-directory: backend/identity-provider
 
     steps:
       - uses: actions/checkout@v4
@@ -77,7 +77,7 @@ jobs:
         with:
           python-version: "3.11"
           cache: pip
-          cache-dependency-path: backend/authentication-service/requirements.txt
+          cache-dependency-path: backend/identity-provider/requirements.txt
 
       - name: Install dependencies
         run: |

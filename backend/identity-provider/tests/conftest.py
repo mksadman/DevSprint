@@ -1,5 +1,5 @@
 """
-Pytest configuration for the authentication-service.
+Pytest configuration for the identity-provider.
 
 Environment variables are injected here *before* any app module is imported
 so that pydantic-settings can resolve them without a .env file.
