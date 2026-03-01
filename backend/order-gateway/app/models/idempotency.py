@@ -4,8 +4,7 @@ import enum
 import uuid
 from datetime import datetime, timezone
 
-from sqlalchemy import DateTime, String, Uuid
-from sqlalchemy.dialects.postgresql import JSONB
+from sqlalchemy import DateTime, String, Uuid, JSON
 from sqlalchemy.orm import Mapped, mapped_column
 
 from app.core.database import Base
@@ -42,7 +41,7 @@ class IdempotencyKey(Base):
         comment="SHA-256 hex digest of the canonical request body",
     )
     response_payload: Mapped[dict | None] = mapped_column(
-        JSONB,
+        JSON,
         nullable=True,
         comment="Serialised response returned for this order_id",
     )

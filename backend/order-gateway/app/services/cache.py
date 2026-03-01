@@ -10,19 +10,23 @@ logger = logging.getLogger(__name__)
 _STOCK_KEY_PREFIX = "stock:"
 _CACHE_TTL_SECONDS = 60
 
+# Shared connection pool — avoids creating a new TCP connection per call
+_pool = aioredis.ConnectionPool(
+    host=settings.REDIS_HOST,
+    port=settings.REDIS_PORT,
+    decode_responses=True,
+    max_connections=20,
+    socket_connect_timeout=2,
+    socket_timeout=2,
+)
+
 
 def _make_key(item_id: str) -> str:
     return f"{_STOCK_KEY_PREFIX}{item_id}"
 
 
 def _get_client() -> aioredis.Redis:
-    return aioredis.Redis(
-        host=settings.REDIS_HOST,
-        port=settings.REDIS_PORT,
-        decode_responses=True,
-        socket_connect_timeout=2,
-        socket_timeout=2,
-    )
+    return aioredis.Redis(connection_pool=_pool)
 
 
 async def get_cached_stock(item_id: str) -> Optional[int]:
@@ -32,11 +36,11 @@ async def get_cached_stock(item_id: str) -> Optional[int]:
       - Redis is unavailable (failure is logged, not raised).
     """
     try:
-        async with _get_client() as client:
-            value = await client.get(_make_key(item_id))
-            if value is None:
-                return None
-            return int(value)
+        client = _get_client()
+        value = await client.get(_make_key(item_id))
+        if value is None:
+            return None
+        return int(value)
     except Exception as exc:
         logger.warning("Redis read failed for item '%s': %s", item_id, exc)
         return None
@@ -48,8 +52,8 @@ async def set_cached_stock(item_id: str, quantity: int) -> None:
     Failures are logged and swallowed — never propagated to callers.
     """
     try:
-        async with _get_client() as client:
-            await client.set(_make_key(item_id), quantity, ex=_CACHE_TTL_SECONDS)
+        client = _get_client()
+        await client.set(_make_key(item_id), quantity, ex=_CACHE_TTL_SECONDS)
     except Exception as exc:
         logger.warning("Redis write failed for item '%s': %s", item_id, exc)
 
@@ -57,7 +61,7 @@ async def set_cached_stock(item_id: str, quantity: int) -> None:
 async def redis_ping() -> bool:
     """Return ``True`` if Redis is reachable, ``False`` otherwise."""
     try:
-        async with _get_client() as client:
-            return bool(await client.ping())
+        client = _get_client()
+        return bool(await client.ping())
     except Exception:
         return False

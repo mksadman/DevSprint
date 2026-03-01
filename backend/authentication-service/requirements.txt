@@ -7,7 +7,7 @@ python-dotenv>=1.0.1
 pyjwt>=2.8.0
 redis>=5.0.3
 passlib[bcrypt]>=1.7.4
-bcrypt>=3.2.0,<4.3.0   # passlib's wrap-bug detection breaks with bcrypt>=4.3
+bcrypt==4.0.1            # passlib is incompatible with bcrypt>=4.1 (72-byte limit)
 
 # Testing
 pytest>=8.1.0

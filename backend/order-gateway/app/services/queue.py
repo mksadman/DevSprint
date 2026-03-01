@@ -38,7 +38,7 @@ def publish_order_event(event: dict[str, Any]) -> None:
     Publish failures are logged and metered; they never roll back prior operations.
     """
     try:
-        loop = asyncio.get_event_loop()
+        loop = asyncio.get_running_loop()
         loop.create_task(_publish(event))
     except RuntimeError as exc:
         metrics.increment_downstream_failures()

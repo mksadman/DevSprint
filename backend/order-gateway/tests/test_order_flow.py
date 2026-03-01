@@ -101,38 +101,33 @@ def test_duplicate_order_id_not_double_decremented(
     mock_publish, mock_deduct, mock_set, mock_get, client
 ):
     """
-    The gateway passes order_id to stock-service on every call.
-    Stock-service is the idempotency source-of-truth; it returns 409 on duplicates.
-    The gateway must propagate that 409 without any extra deduction.
+    When the same order_id is submitted twice, the gateway's idempotency layer
+    returns the original CONFIRMED response without calling stock-service again.
+    This prevents double deduction.
     """
     oid = str(uuid.uuid4())
     mock_deduct.return_value = {"remaining_stock": 8}
 
-    # First call — succeeds
+    # First call — succeeds, stock deducted
     resp1 = client.post(
         "/order",
         json={"order_id": oid, "item_id": "pizza", "quantity": 1},
         headers={"Authorization": f"Bearer {_make_token()}"},
     )
     assert resp1.status_code == 202
+    assert resp1.json()["status"] == "CONFIRMED"
 
-    # Stock-service signals duplicate on second call
-    err_response = MagicMock(spec=httpx.Response)
-    err_response.status_code = 409
-    err_response.json.return_value = {"detail": "Duplicate order_id"}
-    err_response.text = "Duplicate order_id"
-    mock_deduct.side_effect = httpx.HTTPStatusError(
-        "conflict", request=MagicMock(), response=err_response
-    )
-
+    # Second call — same order_id → idempotency returns cached 202
     resp2 = client.post(
         "/order",
         json={"order_id": oid, "item_id": "pizza", "quantity": 1},
         headers={"Authorization": f"Bearer {_make_token()}"},
     )
-    assert resp2.status_code == 409
-    # deduct_stock called exactly once per HTTP request — never skipped or doubled
-    assert mock_deduct.call_count == 2
+    assert resp2.status_code == 202
+    assert resp2.json()["status"] == "CONFIRMED"
+
+    # deduct_stock only called ONCE — the duplicate was caught by the gateway
+    mock_deduct.assert_called_once()
 
 
 @patch("app.routers.order.get_cached_stock", new_callable=AsyncMock, return_value=None)

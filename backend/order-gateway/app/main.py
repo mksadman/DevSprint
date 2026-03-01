@@ -1,7 +1,9 @@
 import logging
+from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
+from app.core.database import Base, engine
 from app.routers import order, health, metrics
 
 logging.basicConfig(
@@ -9,7 +11,18 @@ logging.basicConfig(
     format="%(asctime)s %(levelname)s %(name)s — %(message)s",
 )
 
-app = FastAPI(title="Order Gateway", version="1.0.0")
+
+@asynccontextmanager
+async def lifespan(application: FastAPI):
+    """Ensure gateway_orders & idempotency_keys tables exist on startup."""
+    if engine is not None:
+        import app.models.order  # noqa: F401
+        import app.models.idempotency  # noqa: F401
+        Base.metadata.create_all(bind=engine)
+    yield
+
+
+app = FastAPI(title="Order Gateway", version="1.0.0", lifespan=lifespan)
 
 app.include_router(order.router)
 app.include_router(health.router)
