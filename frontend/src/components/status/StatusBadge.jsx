@@ -5,6 +5,7 @@ const StatusBadge = ({ status }) => {
   let colorClass = 'bg-gray-200 text-gray-800';
 
   switch (status) {
+    case ORDER_STATUS.CONFIRMED:
     case ORDER_STATUS.PENDING:
       colorClass = 'bg-yellow-200 text-yellow-800';
       break;

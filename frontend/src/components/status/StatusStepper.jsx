@@ -9,7 +9,11 @@ const steps = [
 ];
 
 const StatusStepper = ({ currentStatus }) => {
-  const currentIndex = steps.findIndex(step => step.key === currentStatus);
+  // CONFIRMED is the gateway acceptance status; it maps visually to step 0 (Pending)
+  // until the pipeline emits its first real status event via WebSocket.
+  const normalizedStatus =
+    currentStatus === ORDER_STATUS.CONFIRMED ? ORDER_STATUS.PENDING : currentStatus;
+  const currentIndex = steps.findIndex(step => step.key === normalizedStatus);
 
   return (
     <div className="w-full py-6">

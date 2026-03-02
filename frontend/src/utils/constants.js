@@ -3,6 +3,7 @@ export const AUTH_API_BASE_URL = import.meta.env.VITE_AUTH_API_BASE_URL || 'http
 export const WS_URL = import.meta.env.VITE_WS_URL || 'ws://localhost:3000/ws';
 
 export const ORDER_STATUS = {
+  CONFIRMED: 'CONFIRMED',   // gateway accepted; pipeline not started yet
   PENDING: 'PENDING',
   STOCK_VERIFIED: 'STOCK_VERIFIED',
   IN_KITCHEN: 'IN_KITCHEN',
