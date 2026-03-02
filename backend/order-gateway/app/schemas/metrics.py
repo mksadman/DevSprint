@@ -10,3 +10,6 @@ class MetricsResponse(BaseModel):
     cache_short_circuits: Annotated[int, Field(ge=0)]
     downstream_failures: Annotated[int, Field(ge=0)]
     average_response_time_ms: Annotated[float, Field(ge=0)]
+    # 30-second rolling window fields
+    rolling_window_avg_ms: Annotated[float, Field(ge=0)] = 0.0
+    latency_alert: bool = False
