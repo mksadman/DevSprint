@@ -1,6 +1,7 @@
 """Kitchen Service tests — matches the new app/ package structure."""
 import os
 import sys
+from unittest.mock import AsyncMock, patch
 
 # Setup environment BEFORE imports
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -54,14 +55,16 @@ def _post_order(client, order_id=None, item_id="item1", quantity=2, student_id="
 # Health endpoint
 # ---------------------------------------------------------------------------
 class TestHealth:
-    def test_health_returns_200(self, client):
+    @patch("app.routers.health.check_rabbitmq_health", new_callable=AsyncMock, return_value=True)
+    def test_health_returns_200(self, mock_rabbit, client):
         resp = client.get("/health")
         assert resp.status_code == 200
         data = resp.json()
         assert data["status"] == "ok"
         assert data["queue"] == "ready"
 
-    def test_health_response_model(self, client):
+    @patch("app.routers.health.check_rabbitmq_health", new_callable=AsyncMock, return_value=True)
+    def test_health_response_model(self, mock_rabbit, client):
         resp = client.get("/health")
         data = resp.json()
         model = HealthResponse(**data)
