@@ -54,12 +54,18 @@ const DashboardPage = () => {
     }
   }, [wsStatus, orderId]);
 
+  // Pipeline statuses the stepper understands; gateway-only statuses
+  // (CONFIRMED / RECEIVED) are normalised to PENDING as a safety fallback
+  // until the first real pipeline event arrives via WebSocket.
+  const PIPELINE_STATUSES = new Set(['PENDING', 'STOCK_VERIFIED', 'IN_KITCHEN', 'READY', 'CANCELLED']);
+
   // Set initial status when orderId changes or orders are loaded
   useEffect(() => {
     if (orderId && orders.length > 0) {
       const order = orders.find(o => o.order_id === orderId);
       if (order) {
-        setCurrentStatus(order.status);
+        const pipelineStatus = PIPELINE_STATUSES.has(order.status) ? order.status : 'PENDING';
+        setCurrentStatus(pipelineStatus);
       }
     }
   }, [orderId, orders]);

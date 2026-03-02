@@ -8,6 +8,7 @@ from typing import Annotated, Callable
 import httpx
 from fastapi import APIRouter, Depends, HTTPException, status
 from fastapi.security import HTTPAuthorizationCredentials, HTTPBearer
+from sqlalchemy import text
 from sqlalchemy.orm import Session
 
 from app.core.database import get_db, get_session_factory
@@ -231,4 +232,34 @@ async def list_orders(
         .all()
     )
 
-    return OrderListResponse(orders=orders)
+    # Enrich each order with the latest pipeline status from the shared notifications
+    # table (stock/kitchen services). Falls back to PENDING when the pipeline has not
+    # emitted a status event yet (i.e. order was just CONFIRMED by the gateway).
+    pipeline_status_map: dict[str, str] = {}
+    if orders:
+        order_ids_str = [str(o.order_id) for o in orders]
+        rows = db.execute(
+            text(
+                """
+                SELECT DISTINCT ON (order_id) order_id::text AS order_id_str, status_sent
+                FROM notifications
+                WHERE order_id::text = ANY(:oids)
+                ORDER BY order_id, sent_at DESC
+                """
+            ),
+            {"oids": order_ids_str},
+        ).fetchall()
+        pipeline_status_map = {row.order_id_str: row.status_sent for row in rows}
+
+    enriched = [
+        OrderSummary(
+            order_id=o.order_id,
+            item_id=o.item_id,
+            quantity=o.quantity,
+            status=pipeline_status_map.get(str(o.order_id), "PENDING"),
+            created_at=o.created_at,
+        )
+        for o in orders
+    ]
+
+    return OrderListResponse(orders=enriched)
