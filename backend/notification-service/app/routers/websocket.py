@@ -41,9 +41,13 @@ async def websocket_endpoint(
     await connect(websocket, student_id)
     try:
         while True:
-            # Keep the connection alive — client may send pings/pongs
-            await websocket.receive_text()
+            # Use receive() to handle any frame type (text, bytes, disconnect).
+            # receive_text() raises RuntimeError on non-text frames, which caused
+            # the connection to drop immediately after connecting.
+            data = await websocket.receive()
+            if data["type"] == "websocket.disconnect":
+                break
     except WebSocketDisconnect:
-        disconnect(websocket, student_id)
-    except Exception:
+        pass
+    finally:
         disconnect(websocket, student_id)
