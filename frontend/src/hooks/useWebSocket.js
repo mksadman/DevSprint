@@ -36,10 +36,11 @@ const useWebSocket = (orderId) => {
       try {
         const data = JSON.parse(event.data);
         console.log('WebSocket Message:', data);
-        // The server pushes updates for all of this student's orders.
+        // The server sends: { event: "order_status", payload: { order_id, student_id, status } }
         // Only surface the status update when it matches the currently viewed order.
-        if (data.status && (!orderId || data.order_id === orderId)) {
-          setStatus(data.status);
+        const { order_id, status } = data.payload ?? {};
+        if (status && (!orderId || order_id === orderId)) {
+          setStatus(status);
         }
       } catch (error) {
         console.error('WebSocket message parsing error:', error);
