@@ -1,5 +1,7 @@
+import asyncio
 import json
 import logging
+import os
 from datetime import datetime, timezone
 from typing import List, Optional
 
@@ -28,6 +30,16 @@ from app.services.consumer import check_rabbitmq_health, get_notifications_persi
 logger = logging.getLogger(__name__)
 
 router = APIRouter(tags=["Ops"])
+
+
+@router.post("/chaos/kill", summary="Chaos: kill this service process")
+async def chaos_kill() -> dict:
+    """Terminate the process after returning a response. Used by the Admin chaos panel."""
+    async def _exit():
+        await asyncio.sleep(0.5)
+        os._exit(1)
+    asyncio.create_task(_exit())
+    return {"status": "dying", "service": "notification-service"}
 
 
 @router.get("/health", response_model=HealthResponse)

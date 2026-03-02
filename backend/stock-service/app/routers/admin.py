@@ -1,3 +1,6 @@
+import asyncio
+import os
+
 from fastapi import APIRouter, Depends, Response, status
 from sqlalchemy.orm import Session
 
@@ -5,6 +8,16 @@ from app.core.database import check_db_health, get_db
 from app.services.metrics import get_snapshot
 
 router = APIRouter(tags=["admin"])
+
+
+@router.post("/chaos/kill", summary="Chaos: kill this service process")
+async def chaos_kill() -> dict:
+    """Terminate the process after returning a response. Used by the Admin chaos panel."""
+    async def _exit():
+        await asyncio.sleep(0.5)
+        os._exit(1)
+    asyncio.create_task(_exit())
+    return {"status": "dying", "service": "stock-service"}
 
 
 @router.get("/health")

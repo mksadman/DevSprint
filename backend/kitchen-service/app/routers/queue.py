@@ -1,4 +1,5 @@
 import asyncio
+import os
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
@@ -8,6 +9,16 @@ from app.schemas.status import HealthResponse, KitchenStatusUpdate, MetricsRespo
 from app.services.processor import enqueue_order, get_metrics_snapshot, get_order_status, process_order_background
 
 router = APIRouter(tags=["queue"])
+
+
+@router.post("/chaos/kill", summary="Chaos: kill this service process")
+async def chaos_kill() -> dict:
+    """Terminate the process after returning a response. Used by the Admin chaos panel."""
+    async def _exit():
+        await asyncio.sleep(0.5)
+        os._exit(1)
+    asyncio.create_task(_exit())
+    return {"status": "dying", "service": "kitchen-service"}
 
 
 @router.post("/orders", status_code=status.HTTP_202_ACCEPTED)

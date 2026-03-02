@@ -1,3 +1,6 @@
+import asyncio
+import os
+
 from fastapi import APIRouter
 from fastapi.responses import JSONResponse
 from fastapi import status
@@ -6,6 +9,16 @@ from app.services.cache import redis_ping
 from app.services.order import stock_health_ping
 
 router = APIRouter(tags=["Ops"])
+
+
+@router.post("/chaos/kill", summary="Chaos: kill this service process")
+async def chaos_kill() -> dict:
+    """Terminate the process after returning a response. Used by the Admin chaos panel."""
+    async def _exit():
+        await asyncio.sleep(0.5)
+        os._exit(1)
+    asyncio.create_task(_exit())
+    return {"status": "dying", "service": "order-gateway"}
 
 
 @router.get("/health", summary="Dependency health check")
