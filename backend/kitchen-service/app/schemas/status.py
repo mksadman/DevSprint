@@ -13,6 +13,7 @@ class KitchenStatusUpdate(BaseModel):
 class HealthResponse(BaseModel):
     status: str
     queue: str
+    rabbitmq: str
 
 
 class MetricsResponse(BaseModel):

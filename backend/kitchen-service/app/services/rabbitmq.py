@@ -67,6 +67,17 @@ async def publish_notification(payload: dict) -> None:
 
 
 # ── Consumer ────────────────────────────────────────────────────────────────
+async def check_rabbitmq_health() -> bool:
+    """Return True if RabbitMQ is reachable, False otherwise."""
+    try:
+        conn = await aio_pika.connect(RABBITMQ_URL, timeout=3.0)
+        await conn.close()
+        return True
+    except Exception as exc:
+        logger.warning("RabbitMQ health check failed: %s", exc)
+        return False
+
+
 async def _get_channel() -> aio_pika.abc.AbstractChannel:
     global _connection, _channel
     if _channel is not None and _connection is not None and not _connection.is_closed:

@@ -21,14 +21,14 @@ services:
     restart: unless-stopped
     environment:
       JWT_SECRET: ${JWT_SECRET}
-      CORS_ORIGINS: "http://${VM_IP}:3000,https://${VM_DOMAIN:-}"
+      CORS_ORIGINS: '["http://${VM_IP}:3000","https://${VM_DOMAIN:-}"]'
 
   order-gateway:
     restart: unless-stopped
     environment:
       JWT_SECRET: ${JWT_SECRET}
       INTERNAL_API_KEY: ${INTERNAL_API_KEY}
-      CORS_ORIGINS: "http://${VM_IP}:3000,https://${VM_DOMAIN:-}"
+      CORS_ORIGINS: '["http://${VM_IP}:3000","https://${VM_DOMAIN:-}"]'
 
   stock-service:
     restart: unless-stopped

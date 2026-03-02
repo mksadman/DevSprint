@@ -1,18 +1,32 @@
 import asyncio
 import os
 
-from fastapi import APIRouter
+from fastapi import APIRouter, HTTPException
 
 from app.schemas.status import HealthResponse, MetricsResponse
 from app.services.processor import get_metrics_snapshot
+from app.services.rabbitmq import check_rabbitmq_health
 
 router = APIRouter(tags=["Ops"])
 
 
 @router.get("/health", response_model=HealthResponse, summary="Liveness / readiness probe")
 async def health() -> HealthResponse:
-    """Return 200 OK when the service is running and the queue is ready."""
-    return HealthResponse(status="ok", queue="ready")
+    """
+    Liveness / readiness probe.
+
+    Returns 200 if the service is running and RabbitMQ is reachable,
+    503 if RabbitMQ is unavailable.
+    """
+    rabbit_ok = await check_rabbitmq_health()
+    resp = HealthResponse(
+        status="ok" if rabbit_ok else "degraded",
+        queue="ready" if rabbit_ok else "unavailable",
+        rabbitmq="connected" if rabbit_ok else "unavailable",
+    )
+    if not rabbit_ok:
+        raise HTTPException(status_code=503, detail=resp.model_dump())
+    return resp
 
 
 @router.get("/metrics", response_model=MetricsResponse, summary="Kitchen processing counters")
