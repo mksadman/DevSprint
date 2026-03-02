@@ -1,0 +1,64 @@
+# =============================================================================
+# Production overrides — used on top of docker-compose.yml
+#
+# Usage (VM):
+#   docker compose -f docker-compose.yml -f docker-compose.prod.yml \
+#     up -d --build
+#
+# Required environment variables on the VM (set in /root/app/.env.prod or
+# export them in the shell before running the above command):
+#
+#   VM_IP          — public IP or domain of the VM
+#   JWT_SECRET     — strong random secret (replace the dev placeholder)
+#   INTERNAL_API_KEY — strong random key  (replace the dev placeholder)
+#
+# Quick one-liner to generate secrets:
+#   openssl rand -hex 32
+# =============================================================================
+
+services:
+  identity-provider:
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      CORS_ORIGINS: "http://${VM_IP}:3000,https://${VM_DOMAIN:-}"
+
+  order-gateway:
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+      CORS_ORIGINS: "http://${VM_IP}:3000,https://${VM_DOMAIN:-}"
+
+  stock-service:
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+      INTERNAL_API_KEY: ${INTERNAL_API_KEY}
+
+  kitchen-service:
+    restart: unless-stopped
+    environment:
+      JWT_SECRET: ${JWT_SECRET}
+
+  notification-service:
+    restart: unless-stopped
+
+  postgres:
+    restart: unless-stopped
+
+  redis:
+    restart: unless-stopped
+
+  rabbitmq:
+    restart: unless-stopped
+
+  frontend:
+    restart: unless-stopped
+    environment:
+      VITE_AUTH_URL: "http://${VM_IP}:8001"
+      VITE_GATEWAY_URL: "http://${VM_IP}:8000"
+      VITE_STOCK_URL: "http://${VM_IP}:8002"
+      VITE_KITCHEN_URL: "http://${VM_IP}:8003"
+      VITE_NOTIFICATION_URL: "http://${VM_IP}:8004"
+      VITE_WS_URL: "ws://${VM_IP}:8004/ws"
