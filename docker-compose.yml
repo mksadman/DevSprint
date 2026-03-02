@@ -158,6 +158,7 @@ services:
       - "3000:3000"
     depends_on:
       - order-gateway
+      - notification-service
     networks:
       - cafeteria-net
 

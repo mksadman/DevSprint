@@ -2,6 +2,7 @@ import time
 from contextlib import asynccontextmanager
 
 from fastapi import FastAPI, Request
+from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import engine, Base
 from app.models import inventory as _inventory_models  # noqa: F401
@@ -29,6 +30,14 @@ async def lifespan(app: FastAPI):
     yield
 
 app = FastAPI(title="Stock Service", version="1.0.0", lifespan=lifespan)
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
 
 
 @app.middleware("http")
