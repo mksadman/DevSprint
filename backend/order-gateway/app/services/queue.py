@@ -161,6 +161,9 @@ async def _relay_loop() -> None:
 
 def start_outbox_relay() -> None:
     """Launch the relay background task on the running event loop."""
+    if settings.TESTING:
+        logger.info("Outbox relay SKIPPED (TESTING=true)")
+        return
     global _relay_task
     _relay_task = asyncio.create_task(_relay_loop())
     logger.info("Outbox relay started (interval=%ds)", _RELAY_INTERVAL_SECONDS)
@@ -194,6 +197,9 @@ async def publish_status_event(payload: dict[str, Any]) -> None:
     so the frontend live tracker can light up step 1 without waiting for
     the kitchen service to consume the order.
     """
+    if settings.TESTING:
+        return
+
     try:
         exchange = await _ensure_notify_exchange()
         body = json.dumps(payload).encode()

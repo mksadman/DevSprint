@@ -15,18 +15,15 @@ async def health() -> HealthResponse:
     """
     Liveness / readiness probe.
 
-    Returns 200 if the service is running and RabbitMQ is reachable,
-    503 if RabbitMQ is unavailable.
+    Returns 200 if the service is running.
+    RabbitMQ status is reflected in the response body.
     """
     rabbit_ok = await check_rabbitmq_health()
-    resp = HealthResponse(
+    return HealthResponse(
         status="ok" if rabbit_ok else "degraded",
         queue="ready" if rabbit_ok else "unavailable",
         rabbitmq="connected" if rabbit_ok else "unavailable",
     )
-    if not rabbit_ok:
-        raise HTTPException(status_code=503, detail=resp.model_dump())
-    return resp
 
 
 @router.get("/metrics", response_model=MetricsResponse, summary="Kitchen processing counters")

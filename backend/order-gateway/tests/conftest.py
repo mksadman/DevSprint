@@ -17,6 +17,7 @@ os.environ.setdefault("STOCK_SERVICE_URL", "http://stock-service:8001")
 os.environ.setdefault("RABBITMQ_URL", "amqp://guest:guest@localhost:5672/")
 os.environ.setdefault("INTERNAL_API_KEY", "internal-service-key-2026")
 os.environ.setdefault("GATEWAY_TIMEOUT_MS", "2000")
+os.environ.setdefault("TESTING", "true")
 os.environ.setdefault("DATABASE_URL", "sqlite:///")  # in-memory
 
 import pytest

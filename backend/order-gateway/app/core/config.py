@@ -15,6 +15,7 @@ class Settings(BaseSettings):
     RABBITMQ_URL: str = "amqp://guest:guest@rabbitmq:5672/"
     INTERNAL_API_KEY: str = "internal-service-key-2026"
     GATEWAY_TIMEOUT_MS: int
+    TESTING: bool = False
 
     # Comma-separated list of allowed CORS origins.
     # Example: "http://localhost:3000,https://myapp.example.com"
