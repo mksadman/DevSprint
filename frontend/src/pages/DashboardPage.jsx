@@ -88,7 +88,7 @@ const DashboardPage = () => {
             <h2 className="text-lg font-semibold text-gray-800">Your Orders</h2>
           </div>
           
-          <div className="divide-y divide-gray-100 max-h-[600px] overflow-y-auto">
+          <div className="divide-y divide-gray-100 max-h-150 overflow-y-auto">
             {orders.length === 0 ? (
               <div className="p-8 text-center text-gray-500">
                 <p>No orders found.</p>
@@ -170,7 +170,7 @@ const DashboardPage = () => {
               </div>
             </div>
           ) : (
-            <div className="bg-white rounded-xl shadow-md border border-gray-100 p-8 text-center h-full flex flex-col justify-center items-center min-h-[400px]">
+            <div className="bg-white rounded-xl shadow-md border border-gray-100 p-8 text-center h-full flex flex-col justify-center items-center min-h-100">
               <h2 className="text-2xl font-bold text-gray-800 mb-2">Select an Order</h2>
               <p className="text-gray-500 mb-8 max-w-md">
                 Select an order from the list on the left to view its real-time status details.
@@ -179,7 +179,7 @@ const DashboardPage = () => {
               <div className="w-full max-w-md border-t border-gray-100 pt-8 mt-4">
                 <p className="text-sm text-gray-400 mb-4 uppercase tracking-wider font-semibold">Or Track Manually</p>
                 <form onSubmit={handleManualSubmit} className="flex gap-2">
-                  <div className="flex-grow">
+                  <div className="grow">
                     <Input
                       name="manualOrderId"
                       value={manualOrderId}
@@ -187,7 +187,7 @@ const DashboardPage = () => {
                       placeholder="Enter Order ID manually..."
                     />
                   </div>
-                  <Button type="submit" className="whitespace-nowrap h-[42px] mt-[2px]">
+                  <Button type="submit" className="whitespace-nowrap h-10.5 mt-0.5">
                     Track
                   </Button>
                 </form>

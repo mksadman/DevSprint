@@ -40,12 +40,12 @@ const AdminPage = () => {
       </div>
 
       <section className="mb-10">
-        <h2 className="text-lg font-semibold text-gray-700 mb-4 uppercase tracking-wide text-xs">System Health</h2>
+        <h2 className="font-semibold text-gray-700 mb-4 uppercase text-xs">System Health</h2>
         <HealthGrid services={services} />
       </section>
 
       <section className="mb-10">
-        <h2 className="text-lg font-semibold text-gray-700 mb-4 uppercase tracking-wide text-xs">Live Metrics</h2>
+        <h2 className="font-semibold text-gray-700 mb-4 uppercase text-xs">Live Metrics</h2>
         <MetricsPanel services={services} />
       </section>
 
