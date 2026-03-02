@@ -97,6 +97,13 @@ async def _on_message(message: AbstractIncomingMessage) -> None:
         # enqueue_order is idempotent — returns existing record for duplicates.
         # Only spawn processing if the order is freshly QUEUED.
         if record["status"] == "QUEUED":
+            # Notify the live tracker that stock has been verified and the
+            # order is now in the kitchen queue.
+            asyncio.create_task(publish_notification({
+                "order_id": record["order_id"],
+                "student_id": record["student_id"],
+                "status": "STOCK_VERIFIED",
+            }))
             asyncio.create_task(process_order_background(record))
         await message.ack()
         logger.info("Order consumed from RabbitMQ: order_id=%s", data.get("order_id"))

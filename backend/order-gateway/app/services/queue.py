@@ -32,6 +32,14 @@ ROUTING_KEY = "order.placed"
 _RELAY_INTERVAL_SECONDS = 1
 _RELAY_BATCH_SIZE = 50
 
+NOTIFY_EXCHANGE_NAME = "kitchen_events"
+NOTIFY_ROUTING_KEY = "order.status"
+
+# Separate connection for direct status notifications to kitchen_events
+_notify_connection: aio_pika.abc.AbstractRobustConnection | None = None
+_notify_channel: aio_pika.abc.AbstractChannel | None = None
+_notify_exchange: aio_pika.abc.AbstractExchange | None = None
+
 
 # ── Outbox write — called INSIDE the caller's transaction ──────────────────
 
@@ -72,7 +80,7 @@ async def _ensure_channel() -> aio_pika.abc.AbstractExchange:
 
 async def close_rabbitmq() -> None:
     """Gracefully stop relay and close the RabbitMQ connection."""
-    global _connection, _channel, _exchange, _relay_task
+    global _connection, _channel, _exchange, _relay_task, _notify_connection, _notify_channel, _notify_exchange
     if _relay_task is not None:
         _relay_task.cancel()
         try:
@@ -83,6 +91,9 @@ async def close_rabbitmq() -> None:
     if _connection and not _connection.is_closed:
         await _connection.close()
     _connection = _channel = _exchange = None
+    if _notify_connection and not _notify_connection.is_closed:
+        await _notify_connection.close()
+    _notify_connection = _notify_channel = _notify_exchange = None
     logger.info("RabbitMQ connection closed")
 
 
@@ -153,3 +164,50 @@ def start_outbox_relay() -> None:
     global _relay_task
     _relay_task = asyncio.create_task(_relay_loop())
     logger.info("Outbox relay started (interval=%ds)", _RELAY_INTERVAL_SECONDS)
+
+
+# ── Direct status notification publisher ───────────────────────────────────
+
+
+async def _ensure_notify_exchange() -> aio_pika.abc.AbstractExchange:
+    """Return (or create) a connection to the ``kitchen_events`` exchange."""
+    global _notify_connection, _notify_channel, _notify_exchange
+    if (
+        _notify_exchange is not None
+        and _notify_connection is not None
+        and not _notify_connection.is_closed
+    ):
+        return _notify_exchange
+    _notify_connection = await aio_pika.connect_robust(settings.RABBITMQ_URL)
+    _notify_channel = await _notify_connection.channel()
+    _notify_exchange = await _notify_channel.declare_exchange(
+        NOTIFY_EXCHANGE_NAME, aio_pika.ExchangeType.TOPIC, durable=True,
+    )
+    logger.info("RabbitMQ exchange '%s' ready", NOTIFY_EXCHANGE_NAME)
+    return _notify_exchange
+
+
+async def publish_status_event(payload: dict[str, Any]) -> None:
+    """Publish a pipeline status notification directly to ``kitchen_events``.
+
+    Used by the gateway to emit PENDING immediately after an order is persisted,
+    so the frontend live tracker can light up step 1 without waiting for
+    the kitchen service to consume the order.
+    """
+    try:
+        exchange = await _ensure_notify_exchange()
+        body = json.dumps(payload).encode()
+        await exchange.publish(
+            aio_pika.Message(
+                body=body,
+                content_type="application/json",
+                delivery_mode=aio_pika.DeliveryMode.PERSISTENT,
+            ),
+            routing_key=NOTIFY_ROUTING_KEY,
+        )
+        logger.info(
+            "Status event published: order_id=%s status=%s",
+            payload.get("order_id"), payload.get("status"),
+        )
+    except Exception as exc:
+        logger.warning("Failed to publish status event: %s", exc)

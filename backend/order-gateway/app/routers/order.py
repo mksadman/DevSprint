@@ -1,4 +1,5 @@
 import hashlib
+import asyncio
 import json
 import logging
 import time
@@ -19,7 +20,7 @@ from app.services.auth import validate_token
 from app.services.cache import get_cached_stock, set_cached_stock
 from app.services.metrics import metrics
 from app.services.order import deduct_stock
-from app.services.queue import publish_order_event
+from app.services.queue import publish_order_event, publish_status_event
 
 logger = logging.getLogger(__name__)
 
@@ -197,6 +198,13 @@ async def place_order(
         })
         db.commit()
     # ← DB connection returned to pool
+
+    # Notify live tracker: order is now entering the pipeline (PENDING)
+    asyncio.create_task(publish_status_event({
+        "order_id": str(request.order_id),
+        "student_id": student_id,
+        "status": "PENDING",
+    }))
 
     elapsed_ms = (time.perf_counter() - start) * 1000
     metrics.increment_successful()
