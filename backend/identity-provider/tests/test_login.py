@@ -154,7 +154,7 @@ def test_health_returns_200_when_redis_reachable(client: TestClient) -> None:
     assert body["redis"] == "reachable"
 
 
-def test_health_returns_503_when_redis_unreachable(client: TestClient) -> None:
+def test_health_returns_200_degraded_when_redis_unreachable(client: TestClient) -> None:
     import redis as redis_lib
 
     mock_redis = MagicMock()
@@ -163,7 +163,10 @@ def test_health_returns_503_when_redis_unreachable(client: TestClient) -> None:
     with patch("app.services.auth.get_redis_client", return_value=mock_redis):
         response = client.get("/health")
 
-    assert response.status_code == 503
+    assert response.status_code == 200
+    body = response.json()
+    assert body["status"] == "degraded"
+    assert body["redis"] == "unreachable"
 
 
 # ---------------------------------------------------------------------------
