@@ -10,6 +10,8 @@ x-common-env: &common-env
   RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
   JWT_SECRET: super-secret-hackathon-key
   INTERNAL_API_KEY: internal-service-key-2026
+  # Comma-separated. Add your deployed frontend URL here when going to production.
+  CORS_ORIGINS: "http://localhost:3000,http://localhost:5173"
 
 services:
   # ---------------------------------------------------------------------------

@@ -1,3 +1,5 @@
+from typing import List
+
 from pydantic import field_validator
 from pydantic_settings import BaseSettings, SettingsConfigDict
 
@@ -13,6 +15,17 @@ class Settings(BaseSettings):
     RABBITMQ_URL: str = "amqp://guest:guest@rabbitmq:5672/"
     INTERNAL_API_KEY: str = "internal-service-key-2026"
     GATEWAY_TIMEOUT_MS: int
+
+    # Comma-separated list of allowed CORS origins.
+    # Example: "http://localhost:3000,https://myapp.example.com"
+    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, v: object) -> List[str]:
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v  # already a list (e.g. from a .env file with JSON syntax)
 
     @field_validator("REDIS_PORT")
     @classmethod

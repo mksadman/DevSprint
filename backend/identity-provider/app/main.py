@@ -4,6 +4,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import engine
+from app.core.config import settings
 from app.models.user import Base, User
 from app.routers import auth, health, metrics
 from app.services.auth import hash_password
@@ -32,7 +33,7 @@ app = FastAPI(title="Authentication Service", version="1.0.0", lifespan=lifespan
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],

@@ -1,3 +1,6 @@
+from typing import List
+
+from pydantic import field_validator
 from pydantic_settings import BaseSettings
 
 
@@ -13,6 +16,17 @@ class Settings(BaseSettings):
 
     RATE_LIMIT_MAX_ATTEMPTS: int = 3
     RATE_LIMIT_WINDOW_SECONDS: int = 60
+
+    # Comma-separated list of allowed CORS origins.
+    # Example: "http://localhost:3000,https://myapp.example.com"
+    CORS_ORIGINS: List[str] = ["http://localhost:3000"]
+
+    @field_validator("CORS_ORIGINS", mode="before")
+    @classmethod
+    def _parse_cors_origins(cls, v: object) -> List[str]:
+        if isinstance(v, str):
+            return [origin.strip() for origin in v.split(",") if origin.strip()]
+        return v  # already a list (e.g. from a .env file with JSON syntax)
 
     model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
 

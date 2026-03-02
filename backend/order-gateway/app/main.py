@@ -5,6 +5,7 @@ from fastapi import FastAPI
 from fastapi.middleware.cors import CORSMiddleware
 
 from app.core.database import Base, engine
+from app.core.config import settings
 from app.routers import order, health, metrics
 from app.services.queue import close_rabbitmq, start_outbox_relay
 from app.services.order import close_http_client
@@ -33,7 +34,7 @@ app = FastAPI(title="Order Gateway", version="1.0.0", lifespan=lifespan)
 
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["http://localhost:3000"],
+    allow_origins=settings.CORS_ORIGINS,
     allow_credentials=True,
     allow_methods=["*"],
     allow_headers=["*"],
