@@ -157,12 +157,9 @@ jobs:
     steps:
       - uses: actions/checkout@v4
 
-      - name: Build all services
-        run: docker compose build
-
-      - name: Verify containers start
+      - name: Build and verify containers start
         run: |
-          docker compose up -d
+          docker compose up -d --build
           # Wait for infrastructure health checks (postgres, redis, rabbitmq)
           echo "Waiting for services to become healthy..."
           sleep 30
