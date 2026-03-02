@@ -3,7 +3,7 @@ from contextlib import asynccontextmanager
 
 from fastapi import FastAPI
 
-from app.routers import queue
+from app.routers import health, queue
 from app.core.database import Base, engine
 from app.services.rabbitmq import start_consumer, close_rabbitmq
 
@@ -41,4 +41,5 @@ async def lifespan(application: FastAPI):
 
 app = FastAPI(title="Kitchen Service", version="1.0.0", lifespan=lifespan)
 
+app.include_router(health.router)
 app.include_router(queue.router)

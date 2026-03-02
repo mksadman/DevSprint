@@ -1,24 +1,13 @@
 import asyncio
-import os
 from uuid import UUID
 
 from fastapi import APIRouter, HTTPException, status
 
 from app.schemas.event import KitchenOrderEvent
-from app.schemas.status import HealthResponse, KitchenStatusUpdate, MetricsResponse
-from app.services.processor import enqueue_order, get_metrics_snapshot, get_order_status, process_order_background
+from app.schemas.status import KitchenStatusUpdate
+from app.services.processor import enqueue_order, get_order_status, process_order_background
 
 router = APIRouter(tags=["queue"])
-
-
-@router.post("/chaos/kill", summary="Chaos: kill this service process")
-async def chaos_kill() -> dict:
-    """Terminate the process after returning a response. Used by the Admin chaos panel."""
-    async def _exit():
-        await asyncio.sleep(0.5)
-        os._exit(1)
-    asyncio.create_task(_exit())
-    return {"status": "dying", "service": "kitchen-service"}
 
 
 @router.post("/orders", status_code=status.HTTP_202_ACCEPTED)
@@ -39,15 +28,3 @@ async def get_order_status_route(order_id: UUID) -> KitchenStatusUpdate:
             detail="Order not found",
         )
     return KitchenStatusUpdate(order_id=order_id, status=record["status"])
-
-
-@router.get("/health", response_model=HealthResponse)
-async def health() -> HealthResponse:
-    """Liveness / readiness probe."""
-    return HealthResponse(status="ok", queue="ready")
-
-
-@router.get("/metrics", response_model=MetricsResponse)
-async def metrics() -> MetricsResponse:
-    """Expose kitchen processing counters."""
-    return MetricsResponse(**get_metrics_snapshot())
