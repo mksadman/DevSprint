@@ -47,8 +47,8 @@ async def health(db: Session = Depends(get_db)) -> HealthResponse:
     """
     Liveness / readiness probe.
 
-    Returns 200 if service and dependencies are reachable,
-    503 if any critical dependency is down.
+    Returns 200 if service is running.
+    Degraded status is reflected in the response body.
     """
     rabbit_ok = await check_rabbitmq_health()
     db_ok = True
@@ -58,14 +58,11 @@ async def health(db: Session = Depends(get_db)) -> HealthResponse:
         db_ok = False
 
     status = "ok" if (rabbit_ok and db_ok) else "degraded"
-    resp = HealthResponse(
+    return HealthResponse(
         status=status,
         rabbitmq="connected" if rabbit_ok else "unavailable",
         database="connected" if db_ok else "unavailable",
     )
-    if status == "degraded":
-        raise HTTPException(status_code=503, detail=resp.model_dump())
-    return resp
 
 
 @router.get("/metrics", response_model=MetricsResponse)

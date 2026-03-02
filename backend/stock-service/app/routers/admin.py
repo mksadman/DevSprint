@@ -1,11 +1,12 @@
 import asyncio
 import os
 
-from fastapi import APIRouter, Depends, Response, status
+from fastapi import APIRouter, Depends, Response
 from sqlalchemy.orm import Session
 
 from app.core.database import check_db_health, get_db
 from app.services.metrics import get_snapshot
+from app.schemas.health import HealthResponse
 
 router = APIRouter(tags=["admin"])
 
@@ -20,14 +21,12 @@ async def chaos_kill() -> dict:
     return {"status": "dying", "service": "stock-service"}
 
 
-@router.get("/health")
+@router.get("/health", response_model=HealthResponse)
 def health_check(db: Session = Depends(get_db)):
-    if check_db_health(db):
-        return {"status": "ok", "database": "connected"}
-    return Response(
-        content='{"status": "error", "database": "unreachable"}',
-        status_code=status.HTTP_503_SERVICE_UNAVAILABLE,
-        media_type="application/json",
+    db_ok = check_db_health(db)
+    return HealthResponse(
+        status="ok" if db_ok else "degraded",
+        database="connected" if db_ok else "unreachable"
     )
 
 

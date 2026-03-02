@@ -24,13 +24,10 @@ async def health() -> HealthResponse:
     """
     Liveness / readiness probe used by Docker, Admin UI, and Judges.
 
-    - **200** service is running AND Redis is reachable
-    - **503** Redis (or another critical dependency) is unreachable
+    Returns 200 if service is running.
     """
-    if not check_redis_health():
-        raise HTTPException(
-            status_code=503,
-            detail="Redis unreachable",
-        )
-
-    return HealthResponse(status="ok", redis="reachable")
+    redis_ok = check_redis_health()
+    return HealthResponse(
+        status="ok" if redis_ok else "degraded",
+        redis="reachable" if redis_ok else "unreachable",
+    )

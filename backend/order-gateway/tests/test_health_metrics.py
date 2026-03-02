@@ -32,39 +32,42 @@ def test_health_returns_200_when_all_deps_ok(mock_redis, mock_stock, client):
     assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "ok"
-    assert body["dependencies"]["redis"] == "ok"
-    assert body["dependencies"]["stock-service"] == "ok"
+    assert body["redis"] == "ok"
+    assert body["stock_service"] == "ok"
 
 
 @patch("app.routers.health.stock_health_ping", new_callable=AsyncMock, return_value=True)
 @patch("app.routers.health.redis_ping", new_callable=AsyncMock, return_value=False)
 def test_health_degraded_when_redis_down(mock_redis, mock_stock, client):
     resp = client.get("/health")
-    assert resp.status_code == 503
+    # Should now be 200 with degraded status
+    assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "degraded"
-    assert body["dependencies"]["redis"] == "unreachable"
+    assert body["redis"] == "unreachable"
 
 
 @patch("app.routers.health.stock_health_ping", new_callable=AsyncMock, return_value=False)
 @patch("app.routers.health.redis_ping", new_callable=AsyncMock, return_value=True)
 def test_health_degraded_when_stock_down(mock_redis, mock_stock, client):
     resp = client.get("/health")
-    assert resp.status_code == 503
+    # Should now be 200 with degraded status
+    assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "degraded"
-    assert body["dependencies"]["stock-service"] == "unreachable"
+    assert body["stock_service"] == "unreachable"
 
 
 @patch("app.routers.health.stock_health_ping", new_callable=AsyncMock, return_value=False)
 @patch("app.routers.health.redis_ping", new_callable=AsyncMock, return_value=False)
 def test_health_degraded_when_all_deps_down(mock_redis, mock_stock, client):
     resp = client.get("/health")
-    assert resp.status_code == 503
+    # Should now be 200 with degraded status
+    assert resp.status_code == 200
     body = resp.json()
     assert body["status"] == "degraded"
-    assert body["dependencies"]["redis"] == "unreachable"
-    assert body["dependencies"]["stock-service"] == "unreachable"
+    assert body["redis"] == "unreachable"
+    assert body["stock_service"] == "unreachable"
 
 
 # ---------------------------------------------------------------------------

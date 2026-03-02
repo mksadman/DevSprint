@@ -28,10 +28,13 @@ def test_health_200_when_all_ok(mock_rabbit, client):
 
 
 @patch("app.routers.health.check_rabbitmq_health", new_callable=AsyncMock, return_value=False)
-def test_health_503_when_rabbit_down(mock_rabbit, client):
-    """Health returns 503 when RabbitMQ is unreachable."""
+def test_health_200_when_rabbit_down(mock_rabbit, client):
+    """Health returns 200 (degraded) when RabbitMQ is unreachable."""
     resp = client.get("/health")
-    assert resp.status_code == 503
+    assert resp.status_code == 200
+    data = resp.json()
+    assert data["status"] == "degraded"
+    assert data["rabbitmq"] == "unavailable"
 
 
 @patch("app.routers.health.check_rabbitmq_health", new_callable=AsyncMock, return_value=True)
