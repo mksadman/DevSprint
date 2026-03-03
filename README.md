@@ -1,226 +1,271 @@
-# DevSprint — IUT Cafeteria Crisis System
+# Distributed Microservices Hackathon Project (IUT Cafeteria Crisis System)
 
-A microservices-based cafeteria ordering platform with a FastAPI backend, RabbitMQ event bus, and a React frontend.
+A distributed microservices system designed to replace a failing monolith for the IUT Cafeteria. This system handles high-concurrency order placement, real-time stock management, kitchen processing simulation, and instant notifications.
 
----
+## 1️⃣ Basic README Sections
 
-## Project Structure
+### Features Overview
+- **Identity Provider**: Secure JWT authentication with Redis-backed rate limiting.
+- **Order Gateway**: High-throughput entry point with idempotency and caching.
+- **Stock Service**: Optimistic locking for inventory management.
+- **Kitchen Service**: Asynchronous order processing simulation.
+- **Notification Service**: Real-time updates via WebSockets.
+- **Frontend**: Student UI for ordering and Admin Dashboard for monitoring.
 
-```
-DevSprint/
-├── backend/
-│   ├── identity-provider/         # JWT auth — login, register, /me
-│   ├── order-gateway/            # Order entry point — validates, deducts stock, publishes events
-│   ├── stock-service/            # Inventory CRUD + stock deduction
-│   ├── kitchen-service/          # Consumes order events, tracks kitchen queue
-│   └── notification-service/     # WebSocket push + RabbitMQ consumer
-├── frontend/                     # React 18 + Vite + Tailwind CSS
-├── docker-compose.yml
-└── README.md
-```
+### Tech Stack
+- **Backend**: Python (FastAPI), SQLAlchemy, Pydantic
+- **Frontend**: React (Vite), Tailwind CSS
+- **Databases**: PostgreSQL (Service-isolated schemas)
+- **Caching**: Redis
+- **Message Broker**: RabbitMQ
+- **Infrastructure**: Docker, Docker Compose, Nginx
 
----
-
-## Prerequisites
-
-| Tool | Minimum version |
-|---|---|
-| Python | 3.11+ |
-| pip | 23+ |
-| Docker & Docker Compose | 24+ |
-| PostgreSQL | 16+ (or run via Docker) |
-| Redis | 7+ (or run via Docker) |
-| RabbitMQ | 3+ (or run via Docker) |
-
----
-
-## Local Setup (without Docker)
-
-### 1 — Clone the repo
+### How to Run
+The entire system can be started with a single command:
 
 ```bash
-git clone <repo-url>
-cd DevSprint
-```
-
-### 2 — Create and activate a virtual environment
-
-```bash
-# Windows
-python -m venv .venv
-.venv\Scripts\activate
-
-# macOS / Linux
-python -m venv .venv
-source .venv/bin/activate
-```
-
-### 3 — Install dependencies
-
-```bash
-# generic pattern (run from inside the service directory)
-cd backend/<service-name>
-pip install -r requirements.txt
-```
-
-### 4 — Configure environment variables
-
-Each service reads the following variables (set them in your shell or a `.env` file):
-
-```dotenv
-DATABASE_URL=postgresql://cafeteria:cafeteria_pass@localhost:5432/cafeteria_db
-REDIS_URL=redis://localhost:6379/0
-RABBITMQ_URL=amqp://guest:guest@localhost:5672/
-JWT_SECRET=your-secret-key
-```
-
-### 5 — Start infrastructure
-
-```bash
-docker run -d -p 5433:5432 \
-  -e POSTGRES_USER=cafeteria \
-  -e POSTGRES_PASSWORD=cafeteria_pass \
-  -e POSTGRES_DB=cafeteria_db \
-  postgres:16-alpine
-
-docker run -d -p 6379:6379 redis:7-alpine
-
-docker run -d -p 5672:5672 -p 15672:15672 rabbitmq:3-management-alpine
-```
-
-### 6 — Run a service
-
-```bash
-cd backend/identity-provider
-uvicorn app.main:app --reload --port 8001
-```
-
-Repeat on the ports listed in the table below. Interactive API docs are available at `http://localhost:<port>/docs`.
-
----
-
-## Running with Docker Compose
-
-```bash
-# Build and start all services
 docker compose up --build
+```
 
-# Run in the background
-docker compose up --build -d
+Access the application at:
+- **Student UI**: http://localhost:3000
+- **Admin Dashboard**: http://localhost:3000/admin
 
-# Tear down (keep volumes)
-docker compose down
+### Environment Variables
+Environment variables are managed via `docker-compose.yml` and `.env` files. Key variables include:
+- `DATABASE_URL`: Connection string for PostgreSQL.
+- `REDIS_URL`: Connection string for Redis.
+- `RABBITMQ_URL`: Connection string for RabbitMQ.
+- `JWT_SECRET`: Secret key for token generation.
 
-# Tear down and remove volumes
-docker compose down -v
+### CI/CD Overview
+The project uses GitHub Actions for Continuous Integration. The pipeline runs unit tests for all services on every push to `main` and `development` branches.
+
+### Folder Structure
+```
+.
+├── backend/
+│   ├── identity-provider/   # Auth & Rate Limiting
+│   ├── order-gateway/       # Order Entry & Idempotency
+│   ├── stock-service/       # Inventory & Optimistic Locking
+│   ├── kitchen-service/     # Order Processing Simulation
+│   └── notification-service/# WebSocket Notifications
+├── frontend/                # React UI (Student + Admin)
+├── .github/workflows/       # CI/CD Pipelines
+└── docker-compose.yml       # Orchestration
 ```
 
 ---
 
-## Service Ports
+## 2️⃣ Ports Table
 
-| Service | Host port | Internal port |
-|---|---|---|
-| `order-gateway` | 8000 | 8000 |
-| `identity-provider` | 8001 | 8000 |
-| `stock-service` | 8002 | 8000 |
-| `kitchen-service` | 8003 | 8000 |
-| `notification-service` | 8004 | 8000 |
-| `frontend` | 3000 | 3000 |
-| `postgres` | 5433 | 5432 |
-| `redis` | 6379 | 6379 |
-| `rabbitmq` | 5672 / 15672 | 5672 / 15672 |
+| Service | Host Port | Internal Port |
+| :--- | :--- | :--- |
+| **Frontend** | 3000 | 3000 |
+| **Order Gateway** | 8000 | 8000 |
+| **Identity Provider** | 8001 | 8000 |
+| **Stock Service** | 8002 | 8000 |
+| **Kitchen Service** | 8003 | 8000 |
+| **Notification Service** | 8004 | 8000 |
+| **PostgreSQL** | 5433 | 5432 |
+| **Redis** | 6379 | 6379 |
+| **RabbitMQ** | 5672, 15672 | 5672, 15672 |
 
 ---
 
-## Running Tests
+## 3️⃣ System Architecture
 
-```bash
-# example — identity-provider
-cd backend/identity-provider
-pytest tests/ -v
+The system follows a microservices architecture with event-driven communication.
 
-# example — order-gateway
-cd backend/order-gateway
-pytest tests/ -v
+### 1. Identity Provider
+- **Responsibilities**: User authentication, JWT issuance, Rate Limiting.
+- **Key Logic**: Implements a fixed-window rate limiter using Redis.
+- **File**: [rate_limit.py](backend/identity-provider/app/rate_limit.py)
+
+```python
+# backend/identity-provider/app/rate_limit.py
+
+def is_rate_limited(student_id: str) -> bool:
+    """
+    Increment the per-student fixed-window login attempt counter.
+    """
+    key = f"{_KEY_PREFIX}:{student_id}"
+    # ... (Redis INCR and EXPIRE logic)
+    pipe.incr(key)
+    pipe.expire(key, settings.RATE_LIMIT_WINDOW_SECONDS, nx=True)
+    # ...
+    return attempt_count > settings.RATE_LIMIT_MAX_ATTEMPTS
 ```
 
-Each service has its own `tests/` (or `test/`) directory.
+### 2. Order Gateway
+- **Responsibilities**: Order validation, Idempotency check, Stock reservation (cache), Event publishing.
+- **Key Logic**: Uses the **Outbox Pattern** to reliably publish events to RabbitMQ.
+- **File**: [order.py](backend/order-gateway/app/routers/order.py)
 
----
+```python
+# backend/order-gateway/app/routers/order.py
 
-## API Overview
+@router.post("/order", ...)
+async def place_order(...):
+    # Idempotency check
+    with _short_session(db_factory) as db:
+        existing_key = db.query(IdempotencyKey).filter(...).first()
+        if existing_key:
+            # Return cached response or error
+            pass
+    
+    # ... Token validation and Order placement logic
+```
 
-### Identity Provider — port 8001
+### 3. Stock Service
+- **Responsibilities**: Inventory management, Atomic stock deduction.
+- **Key Logic**: Uses **Optimistic Locking** to handle concurrent stock updates.
+- **File**: [stock.py](backend/stock-service/app/services/stock.py)
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/login` | — | Authenticate, returns JWT |
-| `POST` | `/register` | — | Register a new student |
-| `GET` | `/me` | Bearer | Current user info |
-| `GET` | `/health` | — | Liveness probe |
-| `GET` | `/metrics` | — | Login counters and latency |
+```python
+# backend/stock-service/app/services/stock.py
 
-#### POST /login
+# Attempt update with version check
+update_result = (
+    db.query(Inventory)
+    .filter(
+        Inventory.item_id == request.item_id,
+        Inventory.version == current_version,
+    )
+    .update(
+        {
+            "quantity": Inventory.quantity - request.quantity,
+            "version": Inventory.version + 1,
+        },
+        synchronize_session=False,
+    )
+)
+```
 
-```json
-// Request
-{ "student_id": "student001", "password": "password123" }
+### 4. Kitchen Service
+- **Responsibilities**: Order processing simulation.
+- **Key Logic**: Simulates cooking time (3-7s) and updates status via RabbitMQ.
+- **File**: [processor.py](backend/kitchen-service/app/services/processor.py)
 
-// 200 OK
-{ "access_token": "<jwt>", "token_type": "bearer" }
+```python
+# backend/kitchen-service/app/services/processor.py
 
-// 401 Unauthorized
-{ "detail": "Invalid student_id or password." }
+async def process_order_background(order_record: dict) -> None:
+    """Simulate 3-7 s cooking time, cycling through QUEUED → IN_KITCHEN → READY."""
+    cook_time = random.uniform(3.0, 7.0)
+    # ... Update status and notify via RabbitMQ
+```
+
+### 5. Notification Service
+- **Responsibilities**: Consuming events, Persisting notifications, WebSocket push.
+- **Key Logic**: Consumes `kitchen_events` and pushes to frontend.
+- **File**: [consumer.py](backend/notification-service/app/services/consumer.py)
+
+```python
+# backend/notification-service/app/services/consumer.py
+
+async def _on_message(message: AbstractIncomingMessage) -> None:
+    # ...
+    # Persist to DB
+    # Push to student's WebSocket connections
+    ws_message = json.dumps({
+        "event": "order_status",
+        "payload": { ... }
+    })
+    await send_to_student(student_id, ws_message)
 ```
 
 ---
 
-### Order Gateway — port 8000
+## 4️⃣ Core Engineering Requirements
 
-| Method | Path | Auth | Description |
-|---|---|---|---|
-| `POST` | `/order` | Bearer | Place an order (idempotent) |
-| `GET` | `/orders` | Bearer | List orders for current student |
-| `GET` | `/health` | — | Dependency health check |
-| `GET` | `/metrics` | — | Order counters and latency |
-
----
-
-### Stock Service — port 8002
-
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/items` | Create inventory item |
-| `GET` | `/items` | List all items |
-| `GET` | `/items/{item_id}` | Get item by ID |
-| `PUT` | `/items/{item_id}` | Replace item |
-| `PATCH` | `/items/{item_id}` | Update item fields |
-| `DELETE` | `/items/{item_id}` | Delete item |
-| `POST` | `/stock/deduct` | Deduct stock for an order |
-| `GET` | `/transactions/{order_id}` | Audit log by order |
-| `GET` | `/transactions/` | Full audit log |
-| `GET` | `/health` | Liveness probe |
-| `GET` | `/metrics` | Deduction counters and latency |
+- **Microservice Isolation**: Each service runs in its own Docker container with independent dependencies.
+- **Independent Databases**: PostgreSQL is used with separate logical databases/schemas for each service to ensure loose coupling.
+- **Idempotency**: The Order Gateway uses an `idempotency_keys` table to prevent duplicate order processing.
+- **Observability**: All services expose `/health` and `/metrics` endpoints.
+- **Fault Tolerance**: 
+    - **Rate Limiting**: Fail-open policy if Redis is unavailable.
+    - **Message Queues**: RabbitMQ ensures reliable communication between services.
+- **Graceful Degradation**: Frontend handles service unavailability with error messages.
+- **Chaos Engineering**: The Stock Service includes a `/chaos/kill` endpoint to simulate failure.
+- **CI/CD Pipeline**: GitHub Actions runs tests for all services on every commit.
 
 ---
 
-### Kitchen Service — port 8003
+## 5️⃣ Bonus Challenges
 
-| Method | Path | Description |
-|---|---|---|
-| `POST` | `/orders` | Manually enqueue an order |
-| `GET` | `/orders/{order_id}/status` | Get kitchen status for an order |
-| `GET` | `/health` | Liveness probe |
-| `GET` | `/metrics` | Queue counters |
+### Visual Alerts
+The Admin Dashboard tracks the **Order Gateway's** average latency. A 30-second rolling average is calculated, and if it exceeds **1 second (1000ms)**, a visual alert is triggered.
+
+**Alert Logic (Frontend):**
+```jsx
+// frontend/src/components/admin/MetricsPanel.jsx
+
+const GatewayAlertBanner = ({ gatewayUrl }) => {
+  const { metrics } = useMetricsPolling(gatewayUrl);
+  
+  // Alert condition
+  if (!metrics?.latency_alert) return null;
+
+  return (
+    <div className="mb-6 flex items-start gap-3 rounded-lg border border-red-400 bg-red-50 ...">
+      {/* ... Alert UI ... */}
+      <p>
+        30-second rolling average is{' '}
+        <span className="font-mono font-semibold">
+          {metrics.rolling_window_avg_ms?.toFixed(0)} ms
+        </span>
+        {' '}— exceeds the 1 000 ms threshold.
+      </p>
+    </div>
+  );
+};
+```
+
+### Rate Limiting
+The Identity Provider limits login attempts to prevent brute-force attacks. It uses a **Fixed Window** algorithm backed by Redis.
+
+**Enforcement Logic:**
+```python
+# backend/identity-provider/app/rate_limit.py
+
+def is_rate_limited(student_id: str) -> bool:
+    key = f"{_KEY_PREFIX}:{student_id}"
+    try:
+        client = get_redis_client()
+        pipe = client.pipeline()
+        pipe.incr(key)
+        # Set expiry only on first attempt
+        pipe.expire(key, settings.RATE_LIMIT_WINDOW_SECONDS, nx=True)
+        results = pipe.execute()
+        
+        attempt_count: int = results[0]
+        return attempt_count > settings.RATE_LIMIT_MAX_ATTEMPTS
+    except redis_lib.RedisError:
+        # Fail open
+        return False
+```
+**Behavior**: If the limit is exceeded, the API returns a `429 Too Many Requests` status.
 
 ---
 
-### Notification Service — port 8004
+## 6️⃣ DevOps & Deployment
 
-| Method | Path | Description |
-|---|---|---|
-| `GET` | `/health` | Liveness probe (RabbitMQ + DB) |
-| `GET` | `/metrics` | WebSocket and message counters |
-| `POST` | `/notify` | Push a notification to a student |
-| `WS` | `/ws` | WebSocket connection for real-time updates |
+- **Docker Architecture**: Services are containerized using `Dockerfile`s based on `python:3.11-slim` (Backend) and `node:20` (Frontend).
+- **Network**: All services communicate within the `cafeteria-net` bridge network.
+- **CI/CD**: GitHub Actions workflow (`.github/workflows/ci.yml`) runs `pytest` for each backend service in parallel.
+- **Testing Strategy**: 
+    - Unit tests for core logic.
+    - Integration tests for API endpoints.
+    - CI ensures tests pass before merging.
+
+---
+
+## 7️⃣ Monitoring & Chaos Engineering
+
+- **Admin Dashboard**: Provides real-time visibility into service health and metrics.
+- **Health Polling**: The frontend periodically polls `/health` endpoints of all services.
+- **Metrics Polling**: Latency and request counts are polled from `/metrics`.
+- **Chaos Endpoint**: The **Stock Service** exposes a `/chaos/kill` endpoint.
+    - **Action**: Sending a POST request to this endpoint terminates the service process.
+    - **Observation**: The Admin Dashboard will show the Stock Service as "Down" until Docker restarts it (or it is manually restarted), demonstrating the system's resilience and monitoring capabilities.

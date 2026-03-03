@@ -1,4 +1,4 @@
-from sqlalchemy import Column, Integer, DateTime, ForeignKey
+from sqlalchemy import Column, Integer, DateTime, ForeignKey, UniqueConstraint
 from sqlalchemy import Uuid as UUID
 from sqlalchemy.orm import relationship
 from sqlalchemy.sql import func
@@ -9,6 +9,9 @@ from app.core.database import Base
 
 class StockTransaction(Base):
     __tablename__ = "stock_transactions"
+    __table_args__ = (
+        UniqueConstraint('order_id', 'item_id', name='uq_stock_transaction_order_item'),
+    )
 
     id = Column(UUID(as_uuid=True), primary_key=True, default=uuid.uuid4)
     order_id = Column(UUID(as_uuid=True), nullable=False)
