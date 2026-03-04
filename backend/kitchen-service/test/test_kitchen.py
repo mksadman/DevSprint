@@ -1,7 +1,7 @@
+"""Kitchen Service tests — matches the new app/ package structure."""
 import os
 import sys
-import pytest
-from unittest.mock import patch, AsyncMock, MagicMock
+from unittest.mock import AsyncMock, patch
 
 # Setup environment BEFORE imports
 os.environ["DATABASE_URL"] = "sqlite:///:memory:"
@@ -10,230 +10,154 @@ os.environ["RABBITMQ_URL"] = "amqp://guest:guest@localhost:5672/"
 # Add project root to path
 sys.path.append(os.path.abspath(os.path.join(os.path.dirname(__file__), "..")))
 
-from sqlalchemy import create_engine
-from sqlalchemy.orm import sessionmaker
-from sqlalchemy.pool import StaticPool
-
-# Patch aio_pika before importing main (prevents real RabbitMQ connection)
-sys.modules["aio_pika"] = MagicMock()
-
-from models import Base, get_db, KitchenOrder, OrderStatusHistory
-from schemas import (
-    OrderMessage,
-    StatusUpdate,
-    KitchenOrderResponse,
-    StatusHistoryResponse,
-)
-
-# ---------------------------------------------------------------------------
-# Test database (SQLite in-memory)
-# ---------------------------------------------------------------------------
-SQLALCHEMY_DATABASE_URL = "sqlite:///:memory:"
-
-engine = create_engine(
-    SQLALCHEMY_DATABASE_URL,
-    connect_args={"check_same_thread": False},
-    poolclass=StaticPool,
-)
-TestingSessionLocal = sessionmaker(autocommit=False, autoflush=False, bind=engine)
-Base.metadata.create_all(bind=engine)
-
-
-def override_get_db():
-    db = TestingSessionLocal()
-    try:
-        yield db
-    finally:
-        db.close()
-
-
-# Import app AFTER mocking aio_pika
-from main import app
-
-app.dependency_overrides[get_db] = override_get_db
-
-from fastapi.testclient import TestClient
+import pytest
 import uuid
-from datetime import datetime, timezone
+from fastapi.testclient import TestClient
 
-client = TestClient(app)
+from app.main import app
+from app.services import processor
+from app.schemas.event import KitchenOrderEvent
+from app.schemas.status import KitchenStatusUpdate, HealthResponse, MetricsResponse
 
 
 # ---------------------------------------------------------------------------
 # Fixtures
 # ---------------------------------------------------------------------------
 @pytest.fixture(autouse=True)
-def clean_tables():
-    """Wipe tables between tests."""
+def reset_state():
+    """Reset the in-memory queue and counters between tests."""
+    processor._orders.clear()
+    processor._seen_order_ids.clear()
+    processor._store["total_orders_received"] = 0
+    processor._store["total_orders_processed"] = 0
+    processor._store["processing_times_ms"].clear()
     yield
-    db = TestingSessionLocal()
-    db.query(OrderStatusHistory).delete()
-    db.query(KitchenOrder).delete()
-    db.commit()
-    db.close()
 
 
-def _insert_order(order_id: str = None, status: str = "In Kitchen"):
-    """Helper: insert a KitchenOrder directly."""
-    db = TestingSessionLocal()
+@pytest.fixture()
+def client():
+    return TestClient(app)
+
+
+def _post_order(client, order_id=None, item_id="item1", quantity=2, student_id="S001"):
+    """Helper: enqueue an order via the API."""
     oid = order_id or str(uuid.uuid4())
-    order = KitchenOrder(
-        order_id=uuid.UUID(oid),
-        status=status,
-        received_at=datetime.now(timezone.utc),
-        started_at=datetime.now(timezone.utc),
-    )
-    db.add(order)
-    db.commit()
-    db.refresh(order)
-
-    db.add(OrderStatusHistory(
-        kitchen_order_id=order.id,
-        status=status,
-        changed_at=datetime.now(timezone.utc),
-    ))
-    db.commit()
-    db.refresh(order)
-    db.close()
-    return oid, str(order.id)
+    resp = client.post("/orders", json={
+        "order_id": oid,
+        "item_id": item_id,
+        "quantity": quantity,
+        "student_id": student_id,
+    })
+    return oid, resp
 
 
 # ---------------------------------------------------------------------------
 # Health endpoint
 # ---------------------------------------------------------------------------
 class TestHealth:
-    def test_health_returns_200(self):
+    @patch("app.routers.health.check_rabbitmq_health", new_callable=AsyncMock, return_value=True)
+    def test_health_returns_200(self, mock_rabbit, client):
         resp = client.get("/health")
-        # DB is reachable (SQLite); RabbitMQ is mocked/not connected → may be 503
-        # We only assert it returns valid JSON with expected keys
-        assert resp.status_code in (200, 503)
+        assert resp.status_code == 200
         data = resp.json()
-        assert "status" in data
-        assert "database" in data
-        assert "rabbitmq" in data
+        assert data["status"] == "ok"
+        assert data["queue"] == "ready"
 
-    def test_health_db_connected(self):
+    @patch("app.routers.health.check_rabbitmq_health", new_callable=AsyncMock, return_value=True)
+    def test_health_response_model(self, mock_rabbit, client):
         resp = client.get("/health")
         data = resp.json()
-        assert data["database"] == "connected"
+        model = HealthResponse(**data)
+        assert model.status == "ok"
 
 
 # ---------------------------------------------------------------------------
 # Metrics endpoint
 # ---------------------------------------------------------------------------
 class TestMetrics:
-    def test_metrics_returns_200(self):
+    def test_metrics_returns_200(self, client):
         resp = client.get("/metrics")
         assert resp.status_code == 200
-        assert resp.headers["content-type"] == "text/plain; charset=utf-8"
 
-    def test_metrics_contains_expected_keys(self):
+    def test_metrics_initial_values(self, client):
         resp = client.get("/metrics")
-        body = resp.text
-        assert "total_orders_processed" in body
-        assert "total_failures" in body
-        assert "orders_in_progress" in body
-        assert "average_processing_time_ms" in body
-        assert "total_requests" in body
-        assert "average_latency_ms" in body
-
-
-# ---------------------------------------------------------------------------
-# Orders list endpoint
-# ---------------------------------------------------------------------------
-class TestListOrders:
-    def test_empty_list(self):
-        resp = client.get("/orders")
-        assert resp.status_code == 200
-        assert resp.json() == []
-
-    def test_list_returns_inserted_orders(self):
-        oid1, _ = _insert_order()
-        oid2, _ = _insert_order()
-        resp = client.get("/orders")
-        assert resp.status_code == 200
         data = resp.json()
-        assert len(data) == 2
-        returned_oids = {o["order_id"] for o in data}
-        assert oid1 in returned_oids
-        assert oid2 in returned_oids
+        assert data["total_orders_received"] == 0
+        assert data["total_orders_processed"] == 0
+        assert data["average_processing_time_ms"] == 0.0
 
-    def test_filter_by_status(self):
-        _insert_order(status="In Kitchen")
-        _insert_order(status="Ready")
-        resp = client.get("/orders", params={"status_filter": "Ready"})
+    def test_metrics_after_enqueue(self, client):
+        _post_order(client)
+        resp = client.get("/metrics")
         data = resp.json()
-        assert len(data) == 1
-        assert data[0]["status"] == "Ready"
+        assert data["total_orders_received"] == 1
 
 
 # ---------------------------------------------------------------------------
-# Get single order
+# POST /orders — enqueue
 # ---------------------------------------------------------------------------
-class TestGetOrder:
-    def test_existing_order(self):
-        oid, _ = _insert_order()
-        resp = client.get(f"/orders/{oid}")
+class TestEnqueueOrder:
+    def test_enqueue_returns_202(self, client):
+        oid, resp = _post_order(client)
+        assert resp.status_code == 202
+        data = resp.json()
+        assert data["status"] == "queued"
+        assert data["order_id"] == oid
+
+    def test_enqueue_multiple(self, client):
+        _post_order(client)
+        _post_order(client)
+        resp = client.get("/metrics")
+        assert resp.json()["total_orders_received"] == 2
+
+    def test_enqueue_validation_error(self, client):
+        resp = client.post("/orders", json={"bad": "data"})
+        assert resp.status_code == 422
+
+
+# ---------------------------------------------------------------------------
+# GET /orders/{order_id}/status
+# ---------------------------------------------------------------------------
+class TestGetOrderStatus:
+    def test_not_found(self, client):
+        resp = client.get(f"/orders/{uuid.uuid4()}/status")
+        assert resp.status_code == 404
+
+    def test_status_after_enqueue(self, client):
+        """After enqueue the order should be in a valid processing state."""
+        oid, _ = _post_order(client)
+        resp = client.get(f"/orders/{oid}/status")
         assert resp.status_code == 200
         data = resp.json()
         assert data["order_id"] == oid
-        assert data["status"] == "In Kitchen"
-
-    def test_nonexistent_order(self):
-        resp = client.get(f"/orders/{uuid.uuid4()}")
-        assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
-# Order history
-# ---------------------------------------------------------------------------
-class TestOrderHistory:
-    def test_history_returns_entries(self):
-        oid, _ = _insert_order()
-        resp = client.get(f"/orders/{oid}/history")
-        assert resp.status_code == 200
-        data = resp.json()
-        assert len(data) >= 1
-        assert data[0]["status"] == "In Kitchen"
-
-    def test_history_nonexistent_order(self):
-        resp = client.get(f"/orders/{uuid.uuid4()}/history")
-        assert resp.status_code == 404
-
-
-# ---------------------------------------------------------------------------
-# Idempotency: duplicate order_id should not create a second record
-# ---------------------------------------------------------------------------
-class TestIdempotency:
-    def test_duplicate_order_id_not_doubled(self):
-        same_oid = str(uuid.uuid4())
-        _insert_order(order_id=same_oid)
-        # Inserting again with same order_id should be caught by app logic;
-        # here we verify the DB only has one record for that order_id
-        db = TestingSessionLocal()
-        count = db.query(KitchenOrder).filter(
-            KitchenOrder.order_id == uuid.UUID(same_oid)
-        ).count()
-        db.close()
-        assert count == 1
+        assert data["status"] in ("QUEUED", "IN_KITCHEN", "READY")
 
 
 # ---------------------------------------------------------------------------
 # Schema validation
 # ---------------------------------------------------------------------------
 class TestSchemas:
-    def test_order_message_parsing(self):
-        msg = OrderMessage(
+    def test_kitchen_order_event(self):
+        event = KitchenOrderEvent(
             order_id=str(uuid.uuid4()),
+            item_id="item1",
+            quantity=3,
             student_id="S001",
-            items=[{"item_id": "abc", "qty": 2}],
         )
-        assert msg.student_id == "S001"
+        assert event.student_id == "S001"
+        assert event.quantity == 3
 
-    def test_status_update(self):
-        su = StatusUpdate(
+    def test_kitchen_status_update(self):
+        su = KitchenStatusUpdate(
             order_id=str(uuid.uuid4()),
-            student_id="S001",
-            status="Ready",
+            status="IN_KITCHEN",
         )
-        assert su.status == "Ready"
+        assert su.status == "IN_KITCHEN"
+
+    def test_metrics_response(self):
+        mr = MetricsResponse(
+            total_orders_received=10,
+            total_orders_processed=5,
+            average_processing_time_ms=123.456,
+        )
+        assert mr.total_orders_received == 10

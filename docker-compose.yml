@@ -1,5 +1,3 @@
-version: "3.9"
-
 # =============================================================================
 # IUT Cafeteria Crisis System — Docker Compose Orchestration
 # =============================================================================
@@ -11,6 +9,9 @@ x-common-env: &common-env
   REDIS_URL: redis://redis:6379/0
   RABBITMQ_URL: amqp://guest:guest@rabbitmq:5672/
   JWT_SECRET: super-secret-hackathon-key
+  INTERNAL_API_KEY: internal-service-key-2026
+  # JSON array of allowed CORS origins. Add your deployed frontend URL here when going to production.
+  CORS_ORIGINS: '["http://localhost:3000","http://localhost:5173"]'
 
 services:
   # ---------------------------------------------------------------------------
@@ -29,7 +30,7 @@ services:
     networks:
       - cafeteria-net
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U cafeteria"]
+      test: ["CMD-SHELL", "pg_isready -U cafeteria -d cafeteria_db"]
       interval: 10s
       timeout: 5s
       retries: 5
@@ -62,12 +63,14 @@ services:
   # ---------------------------------------------------------------------------
   # Backend Microservices
   # ---------------------------------------------------------------------------
-  authentication-service:
-    build: ./backend/authentication-service
+  identity-provider:
+    build: ./backend/identity-provider
     ports:
       - "8001:8000"
     environment:
       <<: *common-env
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
     depends_on:
       postgres:
         condition: service_healthy
@@ -82,6 +85,10 @@ services:
       - "8000:8000"
     environment:
       <<: *common-env
+      REDIS_HOST: redis
+      REDIS_PORT: 6379
+      STOCK_SERVICE_URL: http://stock-service:8000
+      GATEWAY_TIMEOUT_MS: 5000
     depends_on:
       postgres:
         condition: service_healthy
@@ -89,7 +96,7 @@ services:
         condition: service_healthy
       rabbitmq:
         condition: service_healthy
-      authentication-service:
+      identity-provider:
         condition: service_started
       stock-service:
         condition: service_started
@@ -133,6 +140,8 @@ services:
     environment:
       <<: *common-env
     depends_on:
+      postgres:
+        condition: service_healthy
       redis:
         condition: service_healthy
       rabbitmq:
@@ -149,6 +158,7 @@ services:
       - "3000:3000"
     depends_on:
       - order-gateway
+      - notification-service
     networks:
       - cafeteria-net
 

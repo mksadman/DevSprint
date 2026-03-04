@@ -1,10 +1,10 @@
 # Stage 1: Build the React application
-FROM node:18-alpine AS build
+FROM node:20 AS build
 
 WORKDIR /app
 
 # Install dependencies first for Docker layer caching
-COPY package.json package-lock.json* ./
+COPY package.json ./
 RUN npm install
 
 # Copy source and build
