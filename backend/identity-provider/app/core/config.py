@@ -28,7 +28,7 @@ class Settings(BaseSettings):
             return [origin.strip() for origin in v.split(",") if origin.strip()]
         return v  # already a list (e.g. from a .env file with JSON syntax)
 
-    model_config = {"env_file": ".env", "env_file_encoding": "utf-8"}
+    model_config = {"env_file": ".env", "env_file_encoding": "utf-8", "env_ignore_empty": True}
 
 
 settings = Settings()
