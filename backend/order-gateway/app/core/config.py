@@ -11,6 +11,7 @@ class Settings(BaseSettings):
     JWT_ALGORITHM: str = "HS256"
     REDIS_HOST: str
     REDIS_PORT: int
+    REDIS_PASSWORD: str = ""
     STOCK_SERVICE_URL: str
     RABBITMQ_URL: str = "amqp://guest:guest@rabbitmq:5672/"
     INTERNAL_API_KEY: str = "internal-service-key-2026"

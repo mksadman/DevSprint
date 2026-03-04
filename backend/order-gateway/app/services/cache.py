@@ -14,6 +14,7 @@ _CACHE_TTL_SECONDS = 60
 _pool = aioredis.ConnectionPool(
     host=settings.REDIS_HOST,
     port=settings.REDIS_PORT,
+    password=settings.REDIS_PASSWORD or None,
     decode_responses=True,
     max_connections=20,
     socket_connect_timeout=2,
